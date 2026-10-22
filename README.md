@@ -14,7 +14,7 @@ Select notes from any folder, expand their Markdown cards, and arrange them vert
 
 The banner is an original illustration, not a screenshot of the plugin.
 
-**Documentation is available in English and Russian. The interface in version 0.1.0 is Russian.** English guides include the actual Russian control labels. Translating the documentation does not add an interface language switch.
+**Documentation is available in English and Russian. The interface in version 0.2.0 is Russian.** English guides include the actual Russian control labels. Translating the documentation does not add an interface language switch.
 
 ## What you can do
 
@@ -26,6 +26,7 @@ The banner is an original illustration, not a screenshot of the plugin.
 - See missing metadata immediately: notes without a date or tags have a gray frame and a text explanation.
 - Add a tag explicitly to the original note; adding or moving a card does not rewrite the note.
 - Keep the timeline between sessions, with light and dark themes and touch-friendly action buttons.
+- Use a thin time axis with ringed note markers, fine card borders, rounded tags, and a subtle gradient background inspired by the banner.
 
 If a note has no date, Noteline uses the local date when you add it and saves that fallback. The card stays on that day instead of moving with “today.” If only tags are missing, the note keeps its original date. [Date and tag rules](docs/en/dates-and-tags.md).
 
@@ -95,7 +96,7 @@ npm run build
 
 The production build creates `main.js`. Install it alongside `manifest.json` and `styles.css`; do not copy `node_modules` into a vault. GitHub release assets use these three files individually, with a tag matching `manifest.version`. [Build and publication guide](docs/en/development.md).
 
-## Scope of version 0.1.0
+## Scope of version 0.2.0
 
 One timeline per vault, one card per note, and vertical placement only. There are no event intervals, horizontal date editing, image export, automatic conflict merging, or pinch-to-zoom. Files renamed while the plugin is disabled may need manual relinking. [Compatibility and limitations](docs/en/troubleshooting.md).
 

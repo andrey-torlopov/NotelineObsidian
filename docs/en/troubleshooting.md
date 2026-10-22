@@ -18,7 +18,7 @@ Renames of notes and folders are tracked while Noteline is enabled and writable.
 
 ## Compatibility and scope
 
-Version 0.1.0 provides one timeline per vault and one card per note. It has no intervals, recurring events, date dragging, image export, multiple named timelines, automatic conflict merging, or pinch-to-zoom. Card text is a reading view; edit the original note in Obsidian.
+Version 0.2.0 provides one timeline per vault and one card per note. It has no intervals, recurring events, date dragging, image export, multiple named timelines, automatic conflict merging, or pinch-to-zoom. Card text is a reading view; edit the original note in Obsidian.
 
 The manifest allows mobile installation and runtime code uses browser-compatible APIs. Touch buttons are available. Native smoke checks were performed on macOS with Obsidian 1.14.4; physical iOS/Android, Windows/Linux, and the minimum declared version 1.7.2 remain unverified. Large-vault performance has not been certified.
 

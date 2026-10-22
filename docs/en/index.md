@@ -2,7 +2,7 @@
 
 **English** · [Русский](../ru/index.md) · [README](../../README.md)
 
-Guides for version 0.1.0: install a built plugin, place existing vault notes in time, understand metadata, and preserve your timeline.
+Guides for version 0.2.0: install a built plugin, place existing vault notes in time, understand metadata, and preserve your timeline.
 
 The interface is currently Russian. These pages translate the instructions and retain actual Russian labels where you need to find a control. Note contents and property names are never translated.
 

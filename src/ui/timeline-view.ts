@@ -266,6 +266,14 @@ export class TimelineView extends ItemView {
       }
     } else empty?.remove();
     this.axis.empty();
+    for (const record of valid) {
+      if (!record.effectiveDate) continue;
+      const x = dateToX(record.effectiveDate.coordinate, this.range, this.width);
+      if (x < 0 || x > this.width) continue;
+      const point = this.axis.createDiv({ cls: 'noteline-axis-point', attr: { 'aria-hidden': 'true' } });
+      point.style.setProperty('--noteline-point-x', `${x}px`);
+      point.toggleClass('is-incomplete', record.missingDate || !!record.metadata?.missingTags);
+    }
     for (const tick of generateTicks(this.range, this.width)) {
       const element = this.axis.createDiv({ cls: 'noteline-tick', text: tick.label });
       element.style.setProperty('--noteline-tick-x', `${dateToX(tick.coordinate, this.range, this.width)}px`);

@@ -34,6 +34,8 @@ The title opens the source note in a separate tab. Edit there: the card is a rea
 
 Coincident or nearby dates use additional levels to avoid overlap. Your preferred level is retained; the effective level may change with zoom or card expansion. The narrowest time window is one hour; the widest depends on the selected dates and fitted view.
 
+Rings on the thin time axis mark note dates and follow the selected range. Notes missing a date or tags use a gray ring and a dashed connector, matching their gray card frame. The axis stays visible while the cards scroll vertically.
+
 Pinch-to-zoom is not implemented. Use buttons on a phone or tablet; physical-device verification is still outstanding.
 
 ## Tags and removal

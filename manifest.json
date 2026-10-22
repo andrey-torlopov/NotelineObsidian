@@ -1,7 +1,7 @@
 {
   "id": "noteline",
   "name": "Noteline",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "minAppVersion": "1.7.2",
   "description": "Arrange existing notes on a horizontal timeline with expandable Markdown cards, tags, and a persistent layout.",
   "author": "andrey-torlopov",
