@@ -9,10 +9,10 @@
   "author": "andrey-torlopov",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/andrey-torlopov/noteline.git"
+    "url": "git+https://github.com/andrey-torlopov/NotelineObsidian.git"
   },
   "bugs": {
-    "url": "https://github.com/andrey-torlopov/noteline/issues"
+    "url": "https://github.com/andrey-torlopov/NotelineObsidian/issues"
   },
   "engines": {
     "node": ">=24"

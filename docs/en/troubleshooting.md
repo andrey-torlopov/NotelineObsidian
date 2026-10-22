@@ -24,6 +24,6 @@ The manifest allows mobile installation and runtime code uses browser-compatible
 
 ## Reporting an issue
 
-Open an [issue](https://github.com/andrey-torlopov/noteline/issues) with the Noteline version, Obsidian version, OS/device, reproducible steps, expected behavior, and the displayed error. For metadata problems, provide a minimal sanitized note that reproduces the issue. Include relevant console errors if available; console access differs by platform.
+Open an [issue](https://github.com/andrey-torlopov/NotelineObsidian/issues) with the Noteline version, Obsidian version, OS/device, reproducible steps, expected behavior, and the displayed error. For metadata problems, provide a minimal sanitized note that reproduces the issue. Include relevant console errors if available; console access differs by platform.
 
 Remove private note content, vault paths, and unrelated plugin data before posting. Mention whether other plugins or sync were active. Do not attach an entire personal vault.

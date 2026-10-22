@@ -8,7 +8,7 @@ Obsidian 1.7.2 or newer and a vault with Markdown notes. A built plugin needs no
 
 ## Get a built copy
 
-When a [GitHub release](https://github.com/andrey-torlopov/noteline/releases) is available, download its individual `main.js`, `manifest.json`, and `styles.css` assets. GitHub's **Source code** archive does not contain the ignored build output. Community directory installation becomes available only after submission and acceptance.
+When a [GitHub release](https://github.com/andrey-torlopov/NotelineObsidian/releases) is available, download its individual `main.js`, `manifest.json`, and `styles.css` assets. GitHub's **Source code** archive does not contain the ignored build output. Community directory installation becomes available only after submission and acceptance.
 
 If there is no release yet, use the [source-build instructions](development.md) or a built copy provided by the maintainer. A local installation ZIP may contain a `noteline/` folder with the three required files.
 

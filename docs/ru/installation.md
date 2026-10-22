@@ -8,7 +8,7 @@ Obsidian 1.7.2 или новее и хранилище с Markdown-заметк�
 
 ## Где взять собранные файлы
 
-Когда доступен [GitHub Release](https://github.com/andrey-torlopov/noteline/releases), скачайте отдельные файлы `main.js`, `manifest.json` и `styles.css`. Архив GitHub **Source code** не содержит исключенный из Git результат сборки. Установка из каталога Community появится после подачи и принятия плагина.
+Когда доступен [GitHub Release](https://github.com/andrey-torlopov/NotelineObsidian/releases), скачайте отдельные файлы `main.js`, `manifest.json` и `styles.css`. Архив GitHub **Source code** не содержит исключенный из Git результат сборки. Установка из каталога Community появится после подачи и принятия плагина.
 
 Если релиза пока нет, воспользуйтесь [сборкой из исходников](development.md) или готовой сборкой от автора. Локальный ZIP для установки может содержать папку `noteline/` с тремя нужными файлами.
 

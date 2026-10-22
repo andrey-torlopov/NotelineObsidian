@@ -14,7 +14,7 @@ const options = {
   minify: production,
   treeShaking: true,
   logLevel: "info",
-  banner: { js: "/* Noteline | MIT License | https://github.com/andrey-torlopov/noteline */" },
+  banner: { js: "/* Noteline | MIT License | https://github.com/andrey-torlopov/NotelineObsidian */" },
 };
 
 if (watch) {
