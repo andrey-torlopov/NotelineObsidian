@@ -1,0 +1,92 @@
+<!-- SPDX-License-Identifier: CC0-1.0; original Noteline artwork. See artwork.md. -->
+<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="480" viewBox="0 0 1920 480" role="img" aria-labelledby="title desc">
+  <title id="title">Noteline — see your notes in time</title>
+  <desc id="desc">An original illustration of three note cards connected to a horizontal timeline, with a gray frame marking an undated idea.</desc>
+  <defs>
+    <linearGradient id="background" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#101423"/>
+      <stop offset="1" stop-color="#101020"/>
+    </linearGradient>
+    <radialGradient id="glow">
+      <stop stop-color="#7864c9" stop-opacity=".23"/>
+      <stop offset="1" stop-color="#7864c9" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="axis" gradientUnits="userSpaceOnUse" x1="887" y1="374" x2="1854" y2="374">
+      <stop stop-color="#7c6cbb" stop-opacity=".1"/>
+      <stop offset=".2" stop-color="#9f88ed"/>
+      <stop offset=".85" stop-color="#9f88ed"/>
+      <stop offset="1" stop-color="#7c6cbb" stop-opacity=".1"/>
+    </linearGradient>
+    <linearGradient id="card" x2="0" y2="1">
+      <stop stop-color="#25253f"/>
+      <stop offset="1" stop-color="#1b1d31"/>
+    </linearGradient>
+    <pattern id="dots" width="28" height="28" patternUnits="userSpaceOnUse">
+      <circle cx="1" cy="1" r="1" fill="#b7b0d9" opacity=".1"/>
+    </pattern>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="155%">
+      <feDropShadow dx="0" dy="10" stdDeviation="14" flood-color="#070911" flood-opacity=".5"/>
+    </filter>
+  </defs>
+
+  <path fill="url(#background)" d="M0 0h1920v480H0z"/>
+  <ellipse cx="1400" cy="215" rx="660" ry="410" fill="url(#glow)"/>
+  <path fill="url(#dots)" d="M820 0h1100v480H820z"/>
+  <path d="M820 40v400" stroke="#b3a7de" stroke-opacity=".08"/>
+
+  <g font-family="Arial, Helvetica, sans-serif">
+    <rect x="96" y="60" width="62" height="62" rx="17" fill="#a98cf4" fill-opacity=".12" stroke="#ae96ee" stroke-opacity=".4"/>
+    <path d="M109 94h36M116 85v9m11-17v17m11-11v11" stroke="#c8b7ff" stroke-width="2.5" stroke-linecap="round"/>
+    <circle cx="116" cy="94" r="3.5" fill="#c8b7ff"/>
+    <circle cx="127" cy="94" r="3.5" fill="#c8b7ff"/>
+    <circle cx="138" cy="94" r="3.5" fill="#c8b7ff"/>
+    <text x="180" y="97" fill="#bdb2d9" font-size="17" font-weight="700" letter-spacing="3">FOR OBSIDIAN</text>
+    <text x="90" y="254" font-size="116" font-weight="700" letter-spacing="-5" fill="#f2effb">Note<tspan fill="#b9a0fa">line</tspan></text>
+    <text x="99" y="313" font-size="31" fill="#d2cce4">See your notes in time.</text>
+    <path d="M100 359h38" stroke="#af96ef" stroke-width="3" stroke-linecap="round"/>
+    <text x="99" y="400" font-size="16" fill="#9892ac" letter-spacing="2">EXISTING NOTES. A CLEARER TIMELINE.</text>
+
+    <path d="M887 374h967" stroke="url(#axis)" stroke-width="3" stroke-linecap="round"/>
+    <path d="M960 368v12m57-9v6m57-9v12m57-9v6m57-9v12m57-9v6m57-9v12m57-9v6m57-9v12m57-9v6m57-9v12m57-9v6m57-9v12m57-9v6m57-9v12" stroke="#a78ddf" stroke-opacity=".3"/>
+
+    <path d="M1052 302v72" stroke="#bca6f5" stroke-width="2" stroke-opacity=".55"/>
+    <path d="M1344 248v126" stroke="#bca6f5" stroke-width="2" stroke-opacity=".55"/>
+    <path d="M1646 314v60" stroke="#b3b0c1" stroke-width="2" stroke-dasharray="4 6" stroke-opacity=".55"/>
+
+    <g filter="url(#shadow)">
+      <rect x="920" y="137" width="264" height="165" rx="18" fill="url(#card)" stroke="#70618f"/>
+      <rect x="1212" y="58" width="264" height="190" rx="18" fill="url(#card)" stroke="#a58bdc"/>
+      <rect x="1514" y="164" width="264" height="150" rx="18" fill="#202130" stroke="#9293a2" stroke-width="2"/>
+    </g>
+
+    <text x="940" y="171" fill="#b5a2df" font-size="14" letter-spacing="1">18 OCT 2026</text>
+    <text x="940" y="207" fill="#f0eafc" font-size="23" font-weight="700">Field notes</text>
+    <path d="M941 230h187m-187 12h148" stroke="#77738f" stroke-width="3" stroke-linecap="round" stroke-opacity=".55"/>
+    <rect x="940" y="263" width="100" height="23" rx="11.5" fill="#9c7ee3" fill-opacity=".17"/>
+    <text x="953" y="279" fill="#c9b9ed" font-size="13">#research</text>
+
+    <text x="1232" y="92" fill="#bba5ee" font-size="14" letter-spacing="1">20 OCT 2026 · 10:30</text>
+    <text x="1232" y="128" fill="#f0eafc" font-size="23" font-weight="700">Connect the dots</text>
+    <path d="M1233 152h197m-197 13h159m-159 13h180" stroke="#8d839e" stroke-width="3" stroke-linecap="round" stroke-opacity=".55"/>
+    <rect x="1232" y="207" width="73" height="23" rx="11.5" fill="#9c7ee3" fill-opacity=".17"/>
+    <text x="1245" y="223" fill="#c9b9ed" font-size="13">#ideas</text>
+
+    <text x="1534" y="198" fill="#aaa8ba" font-size="14" letter-spacing="1">22 OCT 2026 · ADDED</text>
+    <text x="1534" y="234" fill="#e5e2ec" font-size="23" font-weight="700">An unfinished idea</text>
+    <path d="M1535 257h192" stroke="#777585" stroke-width="3" stroke-linecap="round" stroke-opacity=".55"/>
+    <circle cx="1540" cy="287" r="4" fill="#a3a2b2"/>
+    <text x="1553" y="292" fill="#aaa8ba" font-size="13">Date and tags missing</text>
+
+    <circle cx="1052" cy="374" r="10" fill="#171728" stroke="#a991e7" stroke-width="2"/>
+    <circle cx="1052" cy="374" r="4" fill="#bda5fb"/>
+    <circle cx="1344" cy="374" r="12" fill="#171728" stroke="#c3a7fc" stroke-width="2"/>
+    <circle cx="1344" cy="374" r="5" fill="#d0b9ff"/>
+    <circle cx="1646" cy="374" r="10" fill="#171728" stroke="#9694a8" stroke-width="2"/>
+    <circle cx="1646" cy="374" r="4" fill="#b9b6cb"/>
+    <g fill="#a49ab9" font-size="15" text-anchor="middle" letter-spacing="1">
+      <text x="1052" y="413">OCT 18</text>
+      <text x="1344" y="413">OCT 20</text>
+      <text x="1646" y="413">OCT 22</text>
+    </g>
+  </g>
+</svg>

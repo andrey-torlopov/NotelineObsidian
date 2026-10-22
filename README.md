@@ -1,108 +1,102 @@
-# Noteline
+<p align="center">
+  <img src="docs/banner.png" alt="Noteline — see your notes in time" width="960"/>
+</p>
 
-Arrange existing Obsidian notes on a horizontal timeline. Expand Markdown cards, organize their vertical positions, and keep note dates and tags visible. Uses public Obsidian and browser APIs for desktop and mobile; physical iOS and Android verification is still required before release.
+# Noteline for Obsidian
 
-Noteline показывает выбранные заметки хранилища на горизонтальной временной оси. Заметки остаются обычными Markdown-файлами; плагин сохраняет ссылки на них и отдельную раскладку. Версия 0.1.0 — первая реализация, еще не опубликованная в Community Plugins.
+**English** · [Русский](README-ru.md)
 
-## Возможности
+## Why Noteline
 
-- Одна сохраняемая ось на хранилище; добавление существующих заметок из любых папок.
-- Свернутые карточки с заголовком, датой и тегами; раскрытие с нативным Markdown Obsidian.
-- Вертикальная раскладка, масштабирование и навигация по дате; светлая и темная темы.
-- Даты из свойств `timeline-date`, `date` или начальной строки `📅`; порядок свойств настраивается.
-- Карточка без даты получает текущую локальную дату при добавлении. Эта дата сохраняется в данных плагина и не меняется на следующий день.
-- Отсутствующая дата или теги отмечаются серой рамкой и текстом причины. Добавление карточки не исправляет исходную заметку автоматически.
-- Явное добавление тега меняет исходную заметку. Форма показывает место записи; удаления или глобального переименования тегов нет.
-- Потерянные файлы и проблемы метаданных показываются в интерфейсе; удаление карточки с оси не удаляет файл.
+A project, a research journal, or a collection of ideas often makes more sense in chronological order. Noteline places your existing Obsidian notes on a horizontal timeline so you can see when things happened and read the notes in context.
 
-## Использование
+Select notes from any folder, expand their Markdown cards, and arrange them vertically without changing their dates. Your notes stay ordinary files in their original locations. The timeline keeps its own membership, layout, and view state.
 
-1. Откройте ось командой **Noteline: Открыть временную ось** или кнопкой на боковой ленте.
-2. Нажмите **Добавить заметку**, найдите файл и выберите его. Можно также добавить текущую заметку через командную палитру или контекстное меню файла.
-3. Раскройте карточку для чтения. Чтобы изменить исходный Markdown или дату, откройте заметку кнопкой карточки.
-4. Перетаскивайте карточку за ручку по вертикали. Кнопки **↑/↓** дают ту же возможность на сенсорном экране. Сфокусированная ручка также принимает стрелки вверх и вниз.
-5. Меняйте масштаб кнопками **−/+** или `Ctrl/Cmd` + колесо. `Shift` + колесо и горизонтальная прокрутка сдвигают ось; обычная прокрутка перемещает содержимое по вертикали.
-6. **←/→** сдвигают ось, **Показать все** подбирает обзор, **Сегодня** и **К дате** меняют центр. На телефоне используйте кнопки; pinch-to-zoom в V1 не реализован.
+The banner is an original illustration, not a screenshot of the plugin.
 
-## Форматы заметок
+**Documentation is available in English and Russian. The interface in version 0.1.0 is Russian.** English guides include the actual Russian control labels. Translating the documentation does not add an interface language switch.
 
-Предпочтительный источник даты — строковое свойство. Можно использовать существующие свойства; по умолчанию `timeline-date` имеет приоритет перед `date`.
+## What you can do
+
+- Add existing Markdown notes from anywhere in your vault, including folders with identical filenames.
+- Read dates from note properties or a leading `📅` line, with optional time of day.
+- Collapse cards to their title, date, and tags, or expand them to read native Obsidian Markdown.
+- Move cards above or below one another; the horizontal coordinate follows the note date.
+- Zoom, pan, fit the selected notes, and jump to a date or today.
+- See missing metadata immediately: notes without a date or tags have a gray frame and a text explanation.
+- Add a tag explicitly to the original note; adding or moving a card does not rewrite the note.
+- Keep the timeline between sessions, with light and dark themes and touch-friendly action buttons.
+
+If a note has no date, Noteline uses the local date when you add it and saves that fallback. The card stays on that day instead of moving with “today.” If only tags are missing, the note keeps its original date. [Date and tag rules](docs/en/dates-and-tags.md).
+
+## Quick start
+
+**Obsidian 1.7.2 or newer.** Desktop smoke checks were completed on macOS with Obsidian 1.14.4. The plugin uses browser-compatible APIs, but physical iOS and Android devices and the minimum Obsidian version still need testing.
+
+1. [Install a built copy](docs/en/installation.md) in a test vault. A source checkout alone is not an installed plugin. Community directory installation requires review and acceptance by Obsidian.
+2. Open the command palette and run **Noteline: Открыть временную ось** — Open timeline.
+3. Choose **Добавить заметку** — Add note — and select a note by name or path. You can also use the file context menu or the active-note command.
+4. Expand a card with its expand button. Use the title to open the original note for editing.
+5. Move the card with its vertical handle or **↑/↓** buttons. Use **−/+** to zoom and **Показать все** — Show all — to fit the selected dates.
+
+[Continue the quick start](docs/en/quick-start.md).
+
+## Note formats
+
+Use existing properties or a small metadata block at the beginning of the note:
 
 ```yaml
 ---
 timeline-date: "2026-10-22 15:30"
 tags:
-  - проекты
-  - идеи/аудио
+  - research
+  - ideas/audio
 ---
 ```
-
-Поддерживается также начальный блок после frontmatter:
 
 ```markdown
 📅 2026-10-22 15:30
-🧭 MOC: [[Проекты]]
-📍 Tags: #проекты #идеи/аудио
-🔗 Links: [[Обзор]]
+📍 Tags: #research #ideas/audio
 
 ---
 
-Текст заметки.
+Your note content.
 ```
 
-Дата должна иметь формат `YYYY-MM-DD` или `YYYY-MM-DD HH:mm`. В свойствах также допускаются `YYYY-MM-DDTHH:mm` и `YYYY-MM-DDTHH:mm:00`. Это календарные значения без часового пояса: запись `15:30` остается `15:30` на другом устройстве. UTC `Z`, смещения, ненулевые секунды и локальные форматы вроде `22/10/26` не поддерживаются. Неверные или конфликтующие даты сопровождаются объяснением; текст заметки не переписывается при чтении.
+The default date priority is `timeline-date`, then `date`, then the leading `📅` line. Property names and their order are configurable. Dates are calendar values without a time zone; `2026-10-22 15:30` remains the same wall-clock value on another device. [Supported formats, conflicts, and missing fields](docs/en/dates-and-tags.md).
 
-Теги читаются из стандартных метаданных Obsidian и начальной строки `📍 Tags:`. Плагин не ищет служебную строку даты в середине текста или в блоках кода. После заполнения обоих полей серая рамка исчезает. Если дату позднее удалить из заметки, подстановка создается и сохраняется заново на дату обнаружения изменения.
+## Documentation
 
-## Установка для проверки
+- [Installation and updates](docs/en/installation.md)
+- [Quick start and controls](docs/en/quick-start.md)
+- [Dates, tags, and gray frames](docs/en/dates-and-tags.md)
+- **[Data storage, privacy, backups, and sync](docs/en/data-and-security.md)**
+- [Troubleshooting and known limits](docs/en/troubleshooting.md)
+- [Development and publication](docs/en/development.md)
+- [All user documentation](docs/en/index.md)
 
-Требуется Obsidian **1.7.2** или новее. Пока релиз не опубликован, получите `main.js` с помощью сборки ниже. Создайте в тестовом хранилище каталог `.obsidian/plugins/noteline/`, поместите в него `main.js`, `manifest.json` и `styles.css`, затем включите Noteline в **Настройки → Сторонние плагины**. Имя каталога должно совпадать с `manifest.id`: `noteline`.
+## Your notes and your data
 
-Исходная совместимость с мобильной платформой включена в манифесте (`isDesktopOnly: false`): код не требует Node.js или Electron. Перед первым публичным релизом необходимо проверить работу в реальном Obsidian на iOS и Android, особенно прокрутку, перетаскивание и экранную клавиатуру. Автоматическая проверка импортов не заменяет проверку устройства.
+Noteline stores the selected note paths, fallback dates, and layout in its standard plugin `data.json`. It does not make a second library of your notes. Opening, expanding, moving, or removing a card from the timeline does not delete or rewrite its source file. **Adding a tag is an explicit write to that note.**
 
-## Данные и приватность
+Back up your notes **and** Noteline's plugin data. Use one active writer when syncing the same timeline between devices; simultaneous layout changes are not merged automatically. [Storage and recovery](docs/en/data-and-security.md).
 
-Настройки, выбранные пути, подставленные даты и раскладка хранятся в стандартном `data.json` плагина внутри каталога конфигурации хранилища. Добавление, раскрытие и перемещение карточек не меняют Markdown. Изменение исходного файла происходит только после явного добавления тега; для активного текстового редактора применяется минимальная правка, а не подмена всего файла. Перед записью YAML в открытую заметку интерфейс может попросить закрыть ее, чтобы сохранить несохраненные правки редактора.
+The plugin makes no network requests of its own, collects no telemetry, and needs no account or server. Obsidian's Markdown renderer and other installed plugins may load external content referenced in a note.
 
-Плагин не отправляет содержимое заметок на собственный сервер, не собирает телеметрию и не делает собственных сетевых запросов. Встроенный Markdown-рендерер Obsidian и другие включенные плагины могут загружать внешние изображения или другое содержимое, указанное в заметке.
+## Development
 
-Если `data.json` изменен извне и локальных несохраненных правок нет, плагин перечитывает состояние. Если локальная запись еще идет или есть несохраненные изменения, показывается конфликт и дальнейшие сохранения останавливаются. Закройте другие устройства, сохраните резервные копии конфликтующих данных и перезагрузите плагин после выбора нужного файла `data.json`. Автоматического слияния и встроенного выбора конфликтующих версий нет.
-
-## Разработка и проверки
-
-Нужны Node.js **24+** и npm. Runtime-зависимостей нет; Obsidian предоставляет API при загрузке плагина.
+Node.js 24+ and npm are development tools; users only need the built plugin files.
 
 ```sh
 npm ci
-npm run validate:manifest
-npm run lint
-npm run typecheck
-npm test
-```
-
-Тесты используют встроенный Node.js test runner с поддержкой TypeScript и не вызывают сборку. `npm run check` выполняет перечисленные проверки. Для создания устанавливаемого `main.js` выполните отдельно:
-
-```sh
+npm run check
 npm run build
 ```
 
-Для разработки с наблюдением за файлами: `npm run dev`. Обе команды собирают код; запускайте их, когда сборка действительно нужна. `styles.css` и `manifest.json` используются без генерации.
+The production build creates `main.js`. Install it alongside `manifest.json` and `styles.css`; do not copy `node_modules` into a vault. GitHub release assets use these three files individually, with a tag matching `manifest.version`. [Build and publication guide](docs/en/development.md).
 
-`scripts/validate-manifest.mjs` проверяет обязательные поля, формат версий, согласованность `manifest.json`, `versions.json` и `package.json`, наличие README и лицензии, а также прямые импорты Node.js/Electron в runtime-исходниках. Уникальность имени и ID проверяется отдельно по текущему официальному каталогу; она не может быть гарантирована офлайн.
+## Scope of version 0.1.0
 
-## Перед публикацией
+One timeline per vault, one card per note, and vertical placement only. There are no event intervals, horizontal date editing, image export, automatic conflict merging, or pinch-to-zoom. Files renamed while the plugin is disabled may need manual relinking. [Compatibility and limitations](docs/en/troubleshooting.md).
 
-1. Проверьте поведение в Obsidian на заявленных платформах, обе темы, восстановление состояния, запись тегов и синхронизацию. Нагрузочные пределы пока не подтверждены; не обещайте поддержку больших хранилищ без замеров.
-2. Выполните проверки и production-сборку. Убедитесь, что `manifest.json` находится в корне default branch, версия совпадает в трех файлах метаданных, а ID и имя остаются уникальными.
-3. Создайте GitHub release с тегом, точно совпадающим с `manifest.version`, например `0.1.0`, и приложите `main.js`, `manifest.json`, `styles.css` как отдельные assets.
-4. Войдите в [Obsidian Community](https://community.obsidian.md), подключите GitHub, добавьте репозиторий и пройдите автоматическую проверку. Следуйте замечаниям каталога перед публикацией.
-
-Манифест следует [официальной схеме](https://docs.obsidian.md/Reference/Manifest); подготовка релиза и заявки описана в [официальной инструкции](https://docs.obsidian.md/Plugins/Releasing/Submit%20your%20plugin), а ограничения кода — в [требованиях к плагинам](https://docs.obsidian.md/community-directory/submission-requirements-for-plugins).
-
-## Ограничения V1
-
-Одна ось, одна карточка на заметку, без временных интервалов, переноса даты по горизонтали, экспорта изображения и распределенного слияния раскладки. Перемещение или переименование файлов при выключенном плагине может потребовать ручного восстановления ссылки. Совместимость с физическими устройствами iOS/Android и минимальной версией Obsidian требует отдельной runtime-проверки.
-
-## License
-
-[MIT](LICENSE), copyright 2026 andrey-torlopov.
+Licensed under [MIT](LICENSE). The original banner artwork is provided under [CC0 1.0](docs/artwork.md).
