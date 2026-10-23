@@ -12,7 +12,7 @@
 | A date in prose is ignored | Put it in a configured property or in the recognized initial metadata block. Noteline does not search the entire body for event dates. |
 | Cards moved after zooming or expansion | Collision avoidance can change the effective cross-axis level. The preferred level remains saved in this file; the date still controls the time-axis coordinate. |
 | The wheel moves cards sideways in vertical mode | This scrolls cross-axis levels. Use **Сдвинуть в прошлое / Сдвинуть в будущее**, **К дате**, or `Shift` + wheel to navigate dates. |
-| Swiping does not move through dates on iOS | Version 0.3.0 lacked touch date panning. Update all three plugin files to 0.4.0 and reload. Start along the fixed scale, background, or a card header; expanded text keeps its own scroll. Physical-device confirmation of this fix is pending. See [touch controls](quick-start.md#touch-devices). |
+| Swiping does not move through dates on iOS | Version 0.3.0 lacked touch date panning. Update all three plugin files to 0.4.1 and reload. Start along the fixed scale, background, or a card header; expanded text keeps its own scroll. Physical-device confirmation of this fix is pending. See [touch controls](quick-start.md#touch-devices). |
 | A note is missing | Restore the file at its old path, or use **Выбрать другой файл** — Choose another file — in the problem list and select the intended note. |
 | A tag cannot be added | Check tag syntax, malformed YAML, duplicate marker lines, and the current save status. For a YAML-target note open in a source editor, use Properties or close that editor before retrying. |
 | A save error is shown | Check write permission, disk space, and sync activity. Click **Ошибка сохранения — нажмите для повтора** to retry. Keep Obsidian open until it shows **Сохранено**. |
@@ -24,7 +24,7 @@ Renames of notes and folders are tracked while Noteline is enabled and writable.
 
 ## Compatibility and scope
 
-Version 0.4.0 provides multiple independent `.timeline` files, separate tabs, horizontal/vertical orientation, either chronological direction, and one card per note within each file. It has no intervals, recurring events, date dragging, image export, collaborative layout merge, or pinch-to-zoom. Card text is a reading view; edit the original note in Obsidian.
+Version 0.4.1 provides multiple independent `.timeline` files, separate tabs, horizontal/vertical orientation, either chronological direction, and one card per note within each file. It has no intervals, recurring events, date dragging, image export, collaborative layout merge, or pinch-to-zoom. Card text is a reading view; edit the original note in Obsidian.
 
 Version 0.3.0 passed native macOS smoke checks with Obsidian 1.14.4, including migration, independent timeline files, file actions, both orientations and directions, partial/BCE dates, persisted layout, and clean external-file updates. The manifest allows mobile installation and the runtime uses browser-compatible public APIs. Physical iOS/Android, Windows/Linux, Obsidian 1.7.2 itself, touch gestures, and actual sync transport/provider conflicts remain unverified. Large-vault performance has not been certified. A successful local external-file update does not verify a sync provider's transport or conflict handling.
 

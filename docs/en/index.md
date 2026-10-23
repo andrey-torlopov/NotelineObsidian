@@ -2,7 +2,7 @@
 
 **English** · [Русский](../ru/index.md) · [README](../../README.md)
 
-Guides for version 0.4.0: install a built plugin, create independent `.timeline` files, place existing notes in time, and preserve the files across devices. Different timelines can stay open in separate tabs, with their own note selection, date settings, layout, orientation, and direction.
+Guides for version 0.4.1: install a built plugin, create independent `.timeline` files, place existing notes in time, and preserve the files across devices. Different timelines can stay open in separate tabs, with their own note selection, date settings, layout, orientation, and direction.
 
 Teachers can arrange lesson topics and course milestones; developers can follow releases, incidents, and development logs; managers can track project milestones and decisions; historians can place archival notes and events by year or century, including BCE. Represent each milestone, event, or log entry with a dated note and select it for the relevant timeline.
 

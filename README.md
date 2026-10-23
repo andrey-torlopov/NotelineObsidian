@@ -12,7 +12,7 @@ A project, a research journal, or a collection of ideas often makes more sense i
 
 Create independent `.timeline` files, select notes from any folder, and open different timelines in separate tabs. Each file keeps its own selected notes, layout, date settings, and view. Your notes stay ordinary Markdown files in their original locations.
 
-**Documentation is available in English and Russian. The interface in version 0.4.0 is Russian.** English guides include the actual Russian control labels. Translating the documentation does not add an interface language switch.
+**Documentation is available in English and Russian. The interface in version 0.4.1 is Russian.** English guides include the actual Russian control labels. Translating the documentation does not add an interface language switch.
 
 ## Who it's for
 
@@ -42,6 +42,8 @@ Use a dated Markdown note for each milestone, event, or log entry, then group re
 - Use a thin time axis with ringed note markers, fine card borders, rounded tags, and a subtle gradient background inspired by the banner.
 
 If a note has no date, Noteline uses the local date when you add it and saves that fallback. The card stays on that day instead of moving with “today.” If only tags are missing, the note keeps its original date. [Date and tag rules](docs/en/dates-and-tags.md).
+
+Version 0.4.1 builds card date labels from the source value: `2026-10-23` stays a date, `2026-10` stays a month, and `2026` stays a year. Explicitly supplied `00:00` remains visible. [Release notes](docs/releases/0.4.1.md).
 
 ## Quick start
 
@@ -113,7 +115,7 @@ npm run build
 
 The production build creates `main.js`. Install it alongside `manifest.json` and `styles.css`; do not copy `node_modules` into a vault. GitHub release assets use these three files individually, with a tag matching `manifest.version`. [Build and publication guide](docs/en/development.md).
 
-## Scope of version 0.4.0
+## Scope of version 0.4.1
 
 Multiple independent timeline files, one card per note within each timeline, horizontal or vertical axes, and either chronological direction. A copy of a timeline keeps references to the same notes; it does not duplicate their contents. There are no event intervals, date editing by dragging, image export, collaborative conflict merging, or pinch-to-zoom. Files renamed while the plugin is disabled may need manual relinking. [Compatibility and limitations](docs/en/troubleshooting.md).
 

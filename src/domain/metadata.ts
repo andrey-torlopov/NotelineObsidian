@@ -1,5 +1,6 @@
 /** Pure calendar and Markdown metadata logic. Coordinates are UTC milliseconds. */
 export interface CalendarDate {
+  /** Canonical source text, retaining exactly the components supplied by the note. */
   value: string;
   coordinate: number;
   precision: 'minute' | 'day' | 'month' | 'year' | 'century';
@@ -101,22 +102,19 @@ export function formatCalendarCentury(astronomicalYear: number, locale: 'ru' | '
   return `${romanCentury(century)} ${locale === 'ru' ? 'век' : 'century'}${astronomicalYear <= 0 ? locale === 'ru' ? ' до н. э.' : ' BC' : ''}`;
 }
 
-/** Format only the source precision. A month/year/century never acquires a visible invented day. */
+/** Display the source value, never reconstruct missing components from the sorting coordinate. */
 export function formatCalendarDate(date: CalendarDate, locale: 'ru' | 'en' = 'ru'): string {
   if (!Number.isFinite(date.coordinate) || date.coordinate < MIN_SUPPORTED_COORDINATE || date.coordinate > MAX_SUPPORTED_COORDINATE) {
     throw new Error('Некорректная календарная координата.');
   }
-  const components = new Date(date.coordinate);
-  const year = components.getUTCFullYear();
-  if (date.precision === 'year') return formatCalendarYear(year, locale);
-  if (date.precision === 'century') return formatCalendarCentury(year, locale);
-  const month = String(components.getUTCMonth() + 1).padStart(2, '0');
-  const day = String(components.getUTCDate()).padStart(2, '0');
-  const calendarYear = year > 0 ? String(year).padStart(4, '0') : formatCalendarYear(year, locale);
-  if (date.precision === 'month') return year > 0 ? `${calendarYear}-${month}` : `${month} ${calendarYear}`;
-  const calendarDay = year > 0 ? `${calendarYear}-${month}-${day}` : `${month}-${day} ${calendarYear}`;
-  if (date.precision === 'day') return calendarDay;
-  return `${calendarDay} ${String(components.getUTCHours()).padStart(2, '0')}:${String(components.getUTCMinutes()).padStart(2, '0')}`;
+  const source = parseCalendarDate(date.value);
+  if (!source) throw new Error('Некорректное исходное значение даты.');
+  const beforeCommonEra = source.value.endsWith(' BC');
+  const value = beforeCommonEra ? source.value.slice(0, -3) : source.value;
+  const era = beforeCommonEra ? locale === 'ru' ? ' до н. э.' : ' BC' : '';
+  if (source.precision === 'year') return `${Number(value)}${era}`;
+  if (source.precision === 'century') return `${value} ${locale === 'ru' ? 'век' : 'century'}${era}`;
+  return source.value;
 }
 
 function linesOf(text: string, start = 0): Line[] {

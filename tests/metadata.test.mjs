@@ -64,6 +64,21 @@ test('partial dates retain month and year precision without displaying invented 
   }
 });
 
+test('card date text comes from the source value even if a projection loses its precision', () => {
+  for (const [input, expected] of [
+    ['2026-10-23', '2026-10-23'], ['2026-10', '2026-10'], ['2026', '2026'],
+    ['XIX', 'XIX век'], ['44 BC', '44 до н. э.'], ['II BC', 'II век до н. э.'],
+    ['2026-10-23 00:00', '2026-10-23 00:00'], ['2026-01-01', '2026-01-01'],
+    ['2026-01', '2026-01'], ['2026-10-23T15:30:00', '2026-10-23 15:30'],
+  ]) {
+    const date = parseCalendarDate(input);
+    assert.equal(formatCalendarDate(date), expected);
+    assert.equal(formatCalendarDate({ ...date, precision: 'minute' }), expected);
+    assert.equal(formatCalendarDate({ ...date, coordinate: calendarCoordinate(2000, 1, 1, 12, 34) }), expected);
+  }
+  assert.throws(() => formatCalendarDate({ value: '', coordinate: 0, precision: 'minute' }), /исходное значение/);
+});
+
 test('each canonical Roman century I through C maps to its historical beginning', () => {
   const centuries = `I II III IV V VI VII VIII IX X XI XII XIII XIV XV XVI XVII XVIII XIX XX
     XXI XXII XXIII XXIV XXV XXVI XXVII XXVIII XXIX XXX XXXI XXXII XXXIII XXXIV XXXV XXXVI XXXVII XXXVIII XXXIX XL
@@ -115,7 +130,7 @@ test('calendar support bounds include full C centuries on both sides of the era 
   assert.equal(last.getUTCMonth(), 11);
   assert.equal(last.getUTCDate(), 31);
   assert.equal(formatCalendarCentury(last.getUTCFullYear()), 'C век');
-  assert.equal(formatCalendarDate({ value: '', coordinate: MIN_SUPPORTED_COORDINATE, precision: 'century' }), 'C век до н. э.');
+  assert.equal(formatCalendarDate(parseCalendarDate('C BC')), 'C век до н. э.');
   assert.throws(() => formatCalendarDate({ value: '', coordinate: MIN_SUPPORTED_COORDINATE - 1, precision: 'year' }), /координата/);
   assert.throws(() => formatCalendarYear(10001), /диапазона/);
 });

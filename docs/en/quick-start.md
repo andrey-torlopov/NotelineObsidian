@@ -4,7 +4,7 @@
 
 ## Open a timeline
 
-Version 0.4.0 uses independent `.timeline` files. Run **Noteline: Открыть временную ось** — Open timeline — from the command palette or ribbon. If no timeline exists, create one when prompted. **Noteline: Создать временную ось** creates another file; **Noteline: Выбрать временную ось** selects an existing file. Different files can stay open in separate tabs.
+Version 0.4.1 uses independent `.timeline` files. Run **Noteline: Открыть временную ось** — Open timeline — from the command palette or ribbon. If no timeline exists, create one when prompted. **Noteline: Создать временную ось** creates another file; **Noteline: Выбрать временную ось** selects an existing file. Different files can stay open in separate tabs.
 
 The toolbar's **Выбрать временную ось** selector opens another timeline. **Создать ось**, **Сохранить копию оси**, **Перечитать файл оси**, and **Удалить ось** manage the current document. Reloading and deletion require confirmation; copying keeps references to the same notes. [Timeline files](timeline-files.md).
 

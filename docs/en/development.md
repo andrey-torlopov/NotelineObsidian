@@ -4,7 +4,7 @@
 
 ## Build from source
 
-Use Node.js 24+ and npm for 0.4.0. Clone the repository and run from its root:
+Use Node.js 24+ and npm for 0.4.1. Clone the repository and run from its root:
 
 ```sh
 npm ci
@@ -44,7 +44,7 @@ The root [`manifest.json`](../../manifest.json) describes the plugin. Keep these
 | --- | --- |
 | `id` | `noteline`; also the installation folder name |
 | `name` | `Noteline` |
-| `version` | `0.4.0`; plain `x.y.z`, matching the release tag |
+| `version` | `0.4.1`; plain `x.y.z`, matching the release tag |
 | `minAppVersion` | `1.7.2`; the minimum declared Obsidian version |
 | `isDesktopOnly` | `false`; mobile installation is enabled, physical-device testing is pending |
 | `author`, `authorUrl` | Maintainer identity and profile |
@@ -52,7 +52,7 @@ The root [`manifest.json`](../../manifest.json) describes the plugin. Keep these
 
 `package.json` and `package-lock.json` must use the same plugin version. [`versions.json`](../../versions.json) maps each published plugin version to its minimum supported Obsidian version.
 
-Prepare the checked production build from the intended commit. For 0.4.0, the published release tag must be **`0.4.0`, without `v`**. Attach `main.js`, `manifest.json`, and `styles.css` individually and verify downloads. A source archive or draft release is insufficient.
+Prepare the checked production build from the intended commit. For 0.4.1, the published release tag must be **`0.4.1`, without `v`**. Attach `main.js`, `manifest.json`, and `styles.css` individually and verify downloads. A source archive or draft release is insufficient.
 
 If Community reports **No release matches your manifest version**, check the default-branch manifest, exact published tag, and assets before changing correct metadata. Increment the version for later code updates.
 

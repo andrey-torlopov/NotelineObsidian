@@ -309,7 +309,7 @@ export class TimelineView extends EditableFileView {
   }
 }
 
-class NoteCard extends Component {
+export class NoteCard extends Component {
   element: HTMLElement;
   private view: TimelineView;
   private id: string;

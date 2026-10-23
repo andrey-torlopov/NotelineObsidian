@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { registerHooks } from 'node:module';
 import { dateToX, fitRange, layoutCards, xToDate } from '../src/domain/timeline.ts';
 import { createDefaultState } from '../src/domain/state.ts';
+import { analyzeNote, parseCalendarDate } from '../src/domain/metadata.ts';
 
 const moduleUrl = code => `data:text/javascript,${encodeURIComponent(code)}`;
 const obsidian = moduleUrl(`
@@ -20,7 +21,34 @@ registerHooks({ resolve(specifier, context, nextResolve) {
   if (context.parentURL === source && specifier === './dialogs.ts') return { url: dialogs, shortCircuit: true };
   return nextResolve(specifier, context);
 } });
-const { TimelineView } = await import('../src/ui/timeline-view.ts');
+const { TimelineView, NoteCard } = await import('../src/ui/timeline-view.ts');
+
+test('actual card update retains source precision after date projection and later note edits', () => {
+  const nothing = () => {};
+  const text = () => ({ value: '', setText(value) { this.value = value; }, setAttribute: nothing, toggleClass: nothing });
+  const card = Object.assign(Object.create(NoteCard.prototype), {
+    title: text(), date: text(), reasons: text(), expand: text(), generation: 0,
+    element: { setAttribute: nothing, toggleClass: nothing },
+    tags: { empty: nothing, createSpan: nothing, createEl: () => ({ setAttribute: nothing, addEventListener: nothing, createSpan: nothing }) },
+    body: { empty: nothing }, measure: nothing,
+  });
+  const entry = { entryId: 'one', expanded: false };
+  for (const input of ['2026-10-23', '2026-10', '2026', 'XIX', '44 BC', 'II BC', '2026-10-23 00:00', '2026-01-01']) {
+    for (const fromProperty of [false, true]) {
+      const metadata = analyzeNote(fromProperty ? 'Body' : `📅 ${input}\nBody`, {
+        dateProperties: ['date'], ...(fromProperty ? { frontmatter: { date: input } } : {}),
+      });
+      assert.equal(metadata.date.kind, 'valid');
+      const effectiveDate = { ...metadata.date.date, precision: 'minute' };
+      card.update(entry, { title: 'Note', path: 'note.md', metadata, effectiveDate, missingDate: false });
+      const expected = input === 'XIX' ? 'XIX век' : input === '44 BC' ? '44 до н. э.' : input === 'II BC' ? 'II век до н. э.' : input;
+      assert.equal(card.date.value, expected, `${input}, property=${fromProperty}`);
+      assert.equal(effectiveDate.coordinate, parseCalendarDate(input).coordinate);
+    }
+  }
+  card.update(entry, { title: 'Undated', path: 'undated.md', effectiveDate: parseCalendarDate('2026-10-23'), missingDate: true });
+  assert.equal(card.date.value, 'Дата подставлена: 2026-10-23');
+});
 
 function harness() {
   const state = createDefaultState();
