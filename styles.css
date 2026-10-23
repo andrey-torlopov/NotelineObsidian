@@ -42,6 +42,7 @@
   overflow: auto;
   overflow-x: hidden;
   overscroll-behavior: contain;
+  touch-action: pan-y pinch-zoom;
   background-image: radial-gradient(var(--noteline-grid) .7px, transparent .7px);
   background-size: 28px 28px;
 }
@@ -85,12 +86,14 @@
 .noteline .noteline-card-tags { display: flex; align-items: center; flex-wrap: wrap; gap: 4px; margin-top: 7px; }
 .noteline .noteline-tag { font-size: var(--font-smallest); border-radius: 999px; padding: 3px 10px; background: var(--background-secondary); background: color-mix(in srgb, var(--interactive-accent) 10%, var(--background-primary)); color: var(--text-accent); }
 .noteline .noteline-card-tags .noteline-icon-button { width: 24px; height: 24px; min-width: 24px; min-height: 24px; padding: 3px; color: var(--text-muted); background: transparent; }
-.noteline .noteline-card-body { display: none; max-height: 360px; overflow: auto; overscroll-behavior: contain; margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--background-modifier-border); font-size: var(--font-text-size); }
+.noteline .noteline-card-body { display: none; max-height: 360px; overflow: auto; overscroll-behavior: contain; touch-action: pan-x pan-y pinch-zoom; margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--background-modifier-border); font-size: var(--font-text-size); }
 .noteline .noteline-card.is-expanded .noteline-card-body { display: block; }
 .noteline .noteline-card-body > :first-child { margin-top: 0; }
 .noteline .noteline-card-body img { max-width: 100%; height: auto; }
 .noteline .noteline-card-body pre { overflow: auto; }
-.noteline .noteline-axis { flex: 0 0 64px; position: relative; overflow: hidden; }
+.noteline .noteline-axis { flex: 0 0 64px; position: relative; overflow: hidden; touch-action: pinch-zoom; }
+.noteline .noteline-axis .noteline-tick, .noteline .noteline-axis .noteline-today { pointer-events: none; }
+.noteline .is-panning { user-select: none; -webkit-user-select: none; }
 .noteline .noteline-axis::before { content: ''; position: absolute; top: var(--noteline-axis-offset); left: 0; right: 0; height: 1px; background: linear-gradient(90deg, transparent, var(--interactive-accent) 16%, var(--interactive-accent) 84%, transparent); opacity: .65; }
 .noteline .noteline-axis-point { --noteline-point-color: var(--interactive-accent); position: absolute; left: var(--noteline-point-x); top: var(--noteline-axis-offset); width: 16px; height: 16px; box-sizing: border-box; transform: translate(-50%, -50%); border: 1.5px solid var(--noteline-point-color); border-radius: 50%; background: var(--background-primary); pointer-events: none; z-index: 1; }
 .noteline .noteline-axis-point::before { content: ''; position: absolute; top: 50%; left: 50%; width: 6px; height: 6px; transform: translate(-50%, -50%); border-radius: 50%; background: var(--noteline-point-color); }
@@ -101,7 +104,7 @@
 .noteline .noteline-tick::before { content: ''; position: absolute; width: 1px; height: 7px; background: var(--text-faint); opacity: .35; top: -18px; left: 50%; }
 .noteline .noteline-today { position: absolute; left: var(--noteline-tick-x); bottom: 3px; transform: translateX(-50%); font-size: var(--font-smallest); color: var(--text-accent); white-space: nowrap; }
 .noteline.is-vertical .noteline-stage { flex-direction: row; }
-.noteline.is-vertical .noteline-scroll { order: 1; min-width: 0; overflow-x: auto; overflow-y: hidden; }
+.noteline.is-vertical .noteline-scroll { order: 1; min-width: 0; overflow-x: auto; overflow-y: hidden; touch-action: pan-x pinch-zoom; }
 .noteline.is-vertical .noteline-axis { order: 0; flex: 0 0 140px; }
 .noteline.is-vertical .noteline-axis::before { top: 0; bottom: 0; left: calc(100% - var(--noteline-axis-offset)); right: auto; width: 1px; height: auto; background: linear-gradient(180deg, transparent, var(--interactive-accent) 16%, var(--interactive-accent) 84%, transparent); }
 .noteline.is-vertical .noteline-axis-point { left: calc(100% - var(--noteline-axis-offset)); top: var(--noteline-point-x); }
@@ -111,7 +114,8 @@
 .noteline.is-vertical .noteline-tick::before { top: 50%; left: auto; right: -18px; width: 7px; height: 1px; }
 .noteline.is-vertical .noteline-today { left: 3px; top: var(--noteline-tick-x); bottom: auto; transform: translateY(-50%); writing-mode: vertical-rl; }
 .noteline.is-vertical .noteline-card-controls .noteline-drag-handle { cursor: ew-resize; }
-.noteline.is-vertical .noteline-card { max-height: max(80px, calc(var(--noteline-scene-height) - 16px)); overflow: auto; overscroll-behavior: contain; }
+.noteline.is-vertical .noteline-card { max-height: max(80px, calc(var(--noteline-scene-height) - 16px)); overflow: auto; overscroll-behavior: auto; touch-action: pan-x pinch-zoom; }
+.noteline.is-vertical .noteline-card.is-overflowing { overscroll-behavior-y: contain; touch-action: pan-x pan-y pinch-zoom; }
 .noteline .noteline-problems { max-height: 150px; overflow: auto; padding: 0 16px; background: var(--background-secondary); font-size: var(--font-smallest); }
 .noteline .noteline-problems:empty { display: none; }
 .noteline .noteline-problems summary { padding-block: 8px; cursor: pointer; }

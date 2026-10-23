@@ -4,7 +4,7 @@
 
 ## What is stored
 
-Version 0.3.0 stores each timeline as a separate `.timeline` JSON file inside the vault, for example `Research/Family history.timeline`. Different files can be open in different tabs.
+Version 0.4.0 stores each timeline as a separate `.timeline` JSON file inside the vault, for example `Research/Family history.timeline`. Different files can be open in different tabs.
 
 | File | What it owns |
 | --- | --- |
@@ -35,7 +35,7 @@ Noteline makes no network requests of its own and includes no telemetry, account
 
 Noteline does not maintain automatic versioned backups. Retaining legacy data during migration is not an ongoing backup system. The toolbar's save-copy action creates another timeline snapshot with the same note references. Timeline files alone cannot restore deleted notes; notes alone cannot restore timeline membership and layout.
 
-Deleting `data.json` in 0.3.0 does not delete existing `.timeline` files, but removes navigation preferences and any retained legacy recovery data. Deleting a `.timeline` file removes that timeline, not its source notes. The toolbar asks for confirmation and sends the file to Obsidian's configured trash. Do not delete either file as a routine repair step.
+Deleting `data.json` in 0.4.0 does not delete existing `.timeline` files, but removes navigation preferences and any retained legacy recovery data. Deleting a `.timeline` file removes that timeline, not its source notes. The toolbar asks for confirmation and sends the file to Obsidian's configured trash. Do not delete either file as a routine repair step.
 
 ## Multiple devices
 

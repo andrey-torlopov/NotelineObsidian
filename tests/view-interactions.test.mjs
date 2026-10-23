@@ -28,6 +28,7 @@ function harness() {
   state.timeline.viewport = { start: 0, end: 86400000, scrollTop: 17 };
   const reports = [];
   const plugin = {
+    externalRevision: 0,
     store: { state, writable: true, change(update) { update(state); } },
     records: new Map([['one', { effectiveDate: { coordinate: 43200000 } }]]),
     updateEntry(id, update) { update(state.timeline.entries.find(item => item.entryId === id)); },
@@ -280,4 +281,33 @@ test('panning a focused card offscreen still updates its time projection in both
     assert.equal(current.view.cards.has('one'), true);
     assert.equal(current.unloaded, false);
   }
+});
+
+test('external file refresh cancels touch without flushing the old camera and clears its pending save', () => {
+  const h = focusedRenderHarness();
+  const canceled = [];
+  const cleared = [];
+  h.view.cancelTouch = persist => canceled.push(persist);
+  h.view.saveTimer = 42;
+  h.view.contentEl.win = { clearTimeout: id => cleared.push(id) };
+  h.plugin.externalRevision = 1;
+  h.plugin.store.state.timeline.viewport = { start: 86400000, end: 172800000, scrollTop: 0 };
+  h.view.render();
+  assert.deepEqual(canceled, [false]);
+  assert.deepEqual(cleared, [42]);
+  assert.equal(h.view.saveTimer, undefined);
+  assert.equal(h.view.range.start, 86400000);
+  assert.equal(h.view.range.end, 172800000);
+});
+
+test('a gesture end or save timer before external refresh renders cannot overwrite its new viewport', () => {
+  const h = harness();
+  const nextViewport = { start: 86400000, end: 172800000, scrollTop: 0 };
+  h.plugin.store.state.timeline.viewport = { ...nextViewport };
+  h.plugin.externalRevision = 1;
+  let writes = 0;
+  h.plugin.store.change = () => { writes++; };
+  h.view.saveCamera();
+  assert.equal(writes, 0);
+  assert.deepEqual(h.plugin.store.state.timeline.viewport, nextViewport);
 });

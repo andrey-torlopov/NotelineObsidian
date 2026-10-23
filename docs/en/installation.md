@@ -4,7 +4,7 @@
 
 ## Requirements
 
-Noteline 0.3.0 declares Obsidian 1.7.2 or newer and uses existing vault Markdown notes. A built plugin needs no server, account, or Node.js. Native macOS smoke checks passed with Obsidian 1.14.4. The manifest enables mobile installation; physical iOS/Android, Windows/Linux, Obsidian 1.7.2 itself, touch gestures, and actual sync transport/provider conflicts remain unverified.
+Noteline 0.4.0 declares Obsidian 1.7.2 or newer and uses existing vault Markdown notes. A built plugin needs no server, account, or Node.js. Version 0.3.0 passed native macOS smoke checks with Obsidian 1.14.4; the 0.4.0 touch iteration has static and automated regression checks. The manifest enables mobile installation; physical iOS/Android, Windows/Linux, Obsidian 1.7.2 itself, touch gestures, and actual sync transport/provider conflicts remain unverified.
 
 ## Get a built copy
 

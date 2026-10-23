@@ -4,7 +4,7 @@
 
 ## Open a timeline
 
-Version 0.3.0 uses independent `.timeline` files. Run **Noteline: Открыть временную ось** — Open timeline — from the command palette or ribbon. If no timeline exists, create one when prompted. **Noteline: Создать временную ось** creates another file; **Noteline: Выбрать временную ось** selects an existing file. Different files can stay open in separate tabs.
+Version 0.4.0 uses independent `.timeline` files. Run **Noteline: Открыть временную ось** — Open timeline — from the command palette or ribbon. If no timeline exists, create one when prompted. **Noteline: Создать временную ось** creates another file; **Noteline: Выбрать временную ось** selects an existing file. Different files can stay open in separate tabs.
 
 The toolbar's **Выбрать временную ось** selector opens another timeline. **Создать ось**, **Сохранить копию оси**, **Перечитать файл оси**, and **Удалить ось** manage the current document. Reloading and deletion require confirmation; copying keeps references to the same notes. [Timeline files](timeline-files.md).
 
@@ -35,6 +35,8 @@ The title opens the source note in a separate tab. Edit there: the card is a rea
 | **Сдвинуть в прошлое / Сдвинуть в будущее** | Pan to earlier / later dates, with the same chronological meaning in reversed mode |
 | `Shift` + wheel | Pan the time window in either orientation |
 | Horizontal trackpad gesture in horizontal mode | Pan the time window |
+| One-finger swipe along the axis, on its background or a card header | Pan through time: left/right horizontally, up/down vertically; reversed dates are respected |
+| One-finger swipe across the axis | Native scrolling of card levels: up/down horizontally, left/right vertically |
 | Ordinary wheel | Scroll cross-axis levels: vertically in horizontal mode, horizontally in vertical mode; over expanded text, scroll its body first |
 | **Показать все** — Show all | Fit dates along the active time axis; additional levels remain scrollable across it |
 | **Сегодня** — Today | Center today without changing the window duration |
@@ -43,9 +45,15 @@ The title opens the source note in a separate tab. Edit there: the card is a rea
 
 Earlier-to-later runs left to right in horizontal mode and top to bottom in vertical mode; reversed mode swaps those directions. The orientation and direction are saved in this timeline file. Coincident or nearby dates use additional cross-axis levels to avoid overlap. Your preferred level is retained; the effective level may change with zoom or expansion. The narrowest time window is one hour; the widest depends on the selected dates and fitted view.
 
-Rings on the thin time axis mark note dates and follow the selected range. Notes missing a date or tags use a gray ring and a dashed connector, matching their gray card frame. The axis stays visible while cross-axis levels scroll. In vertical mode, use the horizontal scrollbar to browse those levels; ordinary scrolling over the field also moves them horizontally. Use the date-navigation buttons to move through time on a touch device.
+Rings on the thin time axis mark note dates and follow the selected range. Notes missing a date or tags use a gray ring and a dashed connector, matching their gray card frame. The axis stays visible while cross-axis levels scroll. In vertical mode, use the horizontal scrollbar or a cross-axis swipe to browse those levels; ordinary mouse scrolling over the field also moves them horizontally.
 
-Pinch-to-zoom is not implemented. Use buttons on a phone or tablet; physical iOS/Android and touch gestures remain unverified.
+## Touch devices
+
+In 0.3.0, scrolling through dates depended on wheel input and toolbar buttons. Version 0.4.0 adds one-finger date panning on the fixed scale, field background, and card headers. Swipe along the axis to move the visible dates; swipe across it to scroll card levels. A tap on a title still opens its note, while a drag does not.
+
+Gestures starting in expanded Markdown text, an overflowing card, or an action control keep that element's own interaction. To pan dates from a long card, start on the fixed scale or the field background. Adding a second finger cancels the current date drag. Timeline pinch-to-zoom and kinetic time panning are not implemented; use **−/+** for the timeline scale. Browser zoom remains subject to the host app.
+
+This fix was reviewed statically and covered by automated event regressions. It has not yet been confirmed in Obsidian on a physical iPhone/iPad. After updating all three plugin files and reloading the plugin, check left/right date swipes in horizontal mode, up/down date swipes in vertical mode, perpendicular card scrolling, and long-text reading. Repeat with reversed dates; report the iOS/Obsidian versions and where the gesture starts if it still fails.
 
 ## Tags and removal
 

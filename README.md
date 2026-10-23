@@ -12,7 +12,7 @@ A project, a research journal, or a collection of ideas often makes more sense i
 
 Create independent `.timeline` files, select notes from any folder, and open different timelines in separate tabs. Each file keeps its own selected notes, layout, date settings, and view. Your notes stay ordinary Markdown files in their original locations.
 
-**Documentation is available in English and Russian. The interface in version 0.3.0 is Russian.** English guides include the actual Russian control labels. Translating the documentation does not add an interface language switch.
+**Documentation is available in English and Russian. The interface in version 0.4.0 is Russian.** English guides include the actual Russian control labels. Translating the documentation does not add an interface language switch.
 
 ## Who it's for
 
@@ -35,6 +35,7 @@ Use a dated Markdown note for each milestone, event, or log entry, then group re
 - Collapse cards to their title, date, and tags, or expand them to read native Obsidian Markdown.
 - Choose a horizontal or vertical time axis, reverse its chronological direction, and arrange cards without changing their dates.
 - Zoom, pan, fit the selected notes, and jump to a date or today.
+- Swipe along the time axis on a touch device; swipe across it to browse card levels. Expanded text keeps its own scrolling area.
 - See missing metadata immediately: notes without a date or tags have a gray frame and a text explanation.
 - Add a tag explicitly to the original note; adding or moving a card does not rewrite the note.
 - Save timeline membership and layout in vault `.timeline` files, with light and dark themes and touch-friendly action buttons.
@@ -45,6 +46,8 @@ If a note has no date, Noteline uses the local date when you add it and saves th
 ## Quick start
 
 **Obsidian 1.7.2 or newer.** Version 0.3.0 passed native macOS smoke checks with Obsidian 1.14.4. The plugin uses browser-compatible APIs and enables mobile installation. Physical iOS/Android, Windows/Linux, Obsidian 1.7.2 itself, touch gestures, and actual sync transport/provider conflicts remain unverified.
+
+Version 0.4.0 fixes the missing touch-pan implementation reported on iOS. This iteration has static and automated regression checks; verification in Obsidian on a real iOS device is pending. [Touch controls and device check](docs/en/quick-start.md#touch-devices).
 
 1. [Install a built copy](docs/en/installation.md) in a test vault. A source checkout alone is not an installed plugin. Community directory installation requires review and acceptance by Obsidian.
 2. Open the command palette and run **Noteline: Открыть временную ось** — Open timeline.
@@ -110,7 +113,7 @@ npm run build
 
 The production build creates `main.js`. Install it alongside `manifest.json` and `styles.css`; do not copy `node_modules` into a vault. GitHub release assets use these three files individually, with a tag matching `manifest.version`. [Build and publication guide](docs/en/development.md).
 
-## Scope of version 0.3.0
+## Scope of version 0.4.0
 
 Multiple independent timeline files, one card per note within each timeline, horizontal or vertical axes, and either chronological direction. A copy of a timeline keeps references to the same notes; it does not duplicate their contents. There are no event intervals, date editing by dragging, image export, collaborative conflict merging, or pinch-to-zoom. Files renamed while the plugin is disabled may need manual relinking. [Compatibility and limitations](docs/en/troubleshooting.md).
 

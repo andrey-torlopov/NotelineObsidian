@@ -4,7 +4,7 @@
 
 ## Create, open, and manage
 
-In 0.3.0, each timeline is a `.timeline` JSON file in the vault. Use **Noteline: Создать временную ось** or **Создать ось** on the toolbar and enter a vault-relative path. The extension is added if omitted. Existing files are not overwritten.
+Since 0.3.0, each timeline is a `.timeline` JSON file in the vault. Use **Noteline: Создать временную ось** or **Создать ось** on the toolbar and enter a vault-relative path. The extension is added if omitted. Existing files are not overwritten.
 
 Open a file from the vault, use **Noteline: Выбрать временную ось**, or select it through **Выбрать временную ось** on the toolbar. Different files open in separate tabs. Each file owns its note selection, date-property priority, fallback dates, layout, expanded states, viewport, orientation, and chronological direction. The same note can appear in several files. Tabs for the same file refer to the same document.
 

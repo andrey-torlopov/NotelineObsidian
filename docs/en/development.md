@@ -4,7 +4,7 @@
 
 ## Build from source
 
-Use Node.js 24+ and npm for 0.3.0. Clone the repository and run from its root:
+Use Node.js 24+ and npm for 0.4.0. Clone the repository and run from its root:
 
 ```sh
 npm ci
@@ -29,6 +29,7 @@ Install `main.js`, `manifest.json`, and `styles.css` in a test vault's `plugins/
 | `src/services/persistence.ts` | Serialized snapshots, retry, and external-change conflicts |
 | `src/services/notes.ts` | Current-buffer or transaction-based explicit tag writes |
 | `src/ui/` | `EditableFileView` for `.timeline`, file dialogs, orientation/direction, and rendered cards |
+| `src/ui/timeline-touch.ts` | Touch camera panning, pointer capture/cancellation, and tap protection |
 | `tests/` | Domain and service regression checks |
 | `scripts/validate-manifest.mjs` | Metadata agreement and desktop-import checks |
 | `styles.css` | Scoped UI styles using Obsidian variables |
@@ -43,7 +44,7 @@ The root [`manifest.json`](../../manifest.json) describes the plugin. Keep these
 | --- | --- |
 | `id` | `noteline`; also the installation folder name |
 | `name` | `Noteline` |
-| `version` | `0.3.0`; plain `x.y.z`, matching the release tag |
+| `version` | `0.4.0`; plain `x.y.z`, matching the release tag |
 | `minAppVersion` | `1.7.2`; the minimum declared Obsidian version |
 | `isDesktopOnly` | `false`; mobile installation is enabled, physical-device testing is pending |
 | `author`, `authorUrl` | Maintainer identity and profile |
@@ -51,7 +52,7 @@ The root [`manifest.json`](../../manifest.json) describes the plugin. Keep these
 
 `package.json` and `package-lock.json` must use the same plugin version. [`versions.json`](../../versions.json) maps each published plugin version to its minimum supported Obsidian version.
 
-Prepare the checked production build from the intended commit. For 0.3.0, the published release tag must be **`0.3.0`, without `v`**. Attach `main.js`, `manifest.json`, and `styles.css` individually and verify downloads. A source archive or draft release is insufficient.
+Prepare the checked production build from the intended commit. For 0.4.0, the published release tag must be **`0.4.0`, without `v`**. Attach `main.js`, `manifest.json`, and `styles.css` individually and verify downloads. A source archive or draft release is insufficient.
 
 If Community reports **No release matches your manifest version**, check the default-branch manifest, exact published tag, and assets before changing correct metadata. Increment the version for later code updates.
 
@@ -64,3 +65,5 @@ Before publishing another build, repeat checks for independent files/tabs, both 
 The 0.3.0 native macOS smoke run on Obsidian 1.14.4 passed activation; legacy migration of three entries with expanded state and fallback dates; two independent timeline files; create/copy/add/delete with the source note retained; both orientations and reversed directions; fit; month/year/Roman-century/BCE-year/BCE-century precision; persistence after app reload; and clean external updates to orientation, direction, and expanded states.
 
 Physical iOS/Android, Windows/Linux, Obsidian 1.7.2 itself, touch gestures, and actual sync transport/provider conflicts remain unverified. Local file-update checks do not establish provider synchronization behavior.
+
+The 0.4.0 touch change is a statically reviewed iteration with automated event regressions. No new physical-device or native Obsidian smoke result is claimed for this build. Confirm the [touch scenarios](quick-start.md#touch-devices) on a real iPhone/iPad after updating; [analysis](../ios-scroll-analysis.md).

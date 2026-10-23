@@ -5,6 +5,7 @@ import type { TimelineEntry } from '../domain/state.ts';
 import { calendarDateToday, formatCalendarDate, parseCalendarDate } from '../domain/metadata.ts';
 import { MIN_SPAN, clampRange, dateToX, fitRange, generateTicks, layoutCards, layoutVerticalCards, maxSpanForCoordinates, panRange, zoomRange, type LayoutInput, type LayoutItem, type TimeRange } from '../domain/timeline.ts';
 import { ValueModal } from './dialogs.ts';
+import { bindTimelineTouch } from './timeline-touch.ts';
 
 export const VIEW_TYPE = 'noteline-timeline';
 const STATUS = { saved: 'Сохранено', saving: 'Сохранение…', error: 'Ошибка сохранения — нажмите для повтора', conflict: 'Конфликт файла', readonly: 'Только чтение' };
@@ -53,6 +54,7 @@ export class TimelineView extends EditableFileView {
   private revealId?: string;
   private revealAfterMeasure?: string;
   private previousHeight = 0;
+  private cancelTouch?: (persist?: boolean) => void;
   constructor(leaf: WorkspaceLeaf, owner: NotelinePlugin) { super(leaf); this.owner = owner; this.allowNoFile = false; }
   getViewType(): string { return VIEW_TYPE; }
   getDisplayText(): string { return this.file?.basename ?? 'Временная ось'; }
@@ -78,6 +80,7 @@ export class TimelineView extends EditableFileView {
 
   private mount(): void {
     this.contentEl.empty(); this.contentEl.addClass('noteline');
+    this.contentEl.toggleClass('is-vertical', this.vertical);
     this.events = this.addChild(new Component());
     const toolbar = this.contentEl.createDiv({ cls: 'noteline-toolbar', attr: { role: 'toolbar', 'aria-label': 'Временная ось' } });
     const brand = toolbar.createDiv({ cls: 'noteline-brand' }); brand.createSpan({ text: 'Noteline' });
@@ -106,6 +109,7 @@ export class TimelineView extends EditableFileView {
     this.direction.createEl('option', { value: 'forward', text: 'От старых к новым' });
     this.direction.createEl('option', { value: 'reverse', text: 'От новых к старым' });
     this.events.registerDomEvent(this.direction, 'change', () => {
+      this.cancelTouch?.();
       try { this.plugin.store.change(state => { state.timeline.reverse = this.direction.value === 'reverse'; }); }
       catch (error) { this.plugin.report(error); }
     });
@@ -126,6 +130,9 @@ export class TimelineView extends EditableFileView {
     this.lines = this.contentEl.ownerDocument.createElementNS('http://www.w3.org/2000/svg', 'svg');
     this.lines.classList.add('noteline-connectors'); this.lines.setAttribute('aria-hidden', 'true'); this.scene.appendChild(this.lines);
     this.axis = stage.createDiv({ cls: 'noteline-axis', attr: { 'aria-label': 'Шкала времени' } });
+    this.cancelTouch = bindTimelineTouch(this.events, [this.scroll, this.axis],
+      () => ({ range: this.range, extent: this.extent, vertical: this.vertical, reverse: this.reverse }),
+      range => this.setRange(range), () => this.flushCamera());
     this.unsubscribe = this.plugin.subscribe(() => this.schedule());
     this.events.registerDomEvent(this.scroll, 'scroll', () => { this.schedule(); this.saveCameraLater(); });
     this.events.registerDomEvent(this.scroll, 'wheel', event => {
@@ -180,6 +187,7 @@ export class TimelineView extends EditableFileView {
   }
   private changeOrientation(): void {
     try {
+      this.cancelTouch?.();
       this.flushCamera();
       this.plugin.store.change(state => { state.timeline.orientation = this.orientation.value === 'vertical' ? 'vertical' : 'horizontal'; if (state.timeline.viewport) { state.timeline.viewport.scrollTop = 0; state.timeline.viewport.scrollLeft = 0; } });
       this.initializedScroll = false; this.drag = undefined; this.schedule();
@@ -191,7 +199,8 @@ export class TimelineView extends EditableFileView {
     this.saveTimer = this.contentEl.win.setTimeout(() => { this.saveTimer = undefined; this.saveCamera(); }, 350);
   }
   private saveCamera(): void {
-    if (!this.plugin.store.writable) return;
+    // An external state can arrive before the next render cancels a pending gesture/timer.
+    if (!this.plugin.store.writable || this.seenExternal !== this.plugin.externalRevision) return;
     const viewport = { start: this.range.start, end: this.range.end, scrollTop: this.scroll.scrollTop, scrollLeft: this.scroll.scrollLeft };
     try { this.plugin.store.change(state => { state.timeline.viewport = viewport; }); } catch (error) { this.plugin.report(error); }
   }
@@ -202,6 +211,8 @@ export class TimelineView extends EditableFileView {
   private render(): void {
     if (this.closed || this.width <= 0 || this.extent <= 0) return;
     if (this.seenExternal !== this.plugin.externalRevision) {
+      this.cancelTouch?.(false);
+      if (this.saveTimer !== undefined) { this.contentEl.win.clearTimeout(this.saveTimer); this.saveTimer = undefined; }
       this.seenExternal = this.plugin.externalRevision; this.range = this.plugin.store.state.timeline.viewport ?? currentMonth(); this.initializedScroll = false; this.drag = undefined;
     }
     const store = this.plugin.store;
@@ -286,6 +297,7 @@ export class TimelineView extends EditableFileView {
   flushCamera(): void { if (this.saveTimer !== undefined) { this.contentEl.win.clearTimeout(this.saveTimer); this.saveTimer = undefined; this.saveCamera(); } }
   private async detachSession(invalidate = true): Promise<void> {
     if (invalidate) this.binding++;
+    this.cancelTouch?.(); this.cancelTouch = undefined;
     this.flushCamera(); this.closed = true;
     if (this.frame) this.contentEl.win.cancelAnimationFrame(this.frame); this.frame = 0;
     this.observer?.disconnect(); this.unsubscribe?.(); this.unsubscribeCollection?.(); this.unsubscribe = undefined; this.unsubscribeCollection = undefined;
@@ -367,9 +379,14 @@ class NoteCard extends Component {
     this.tags = this.element.createDiv({ cls: 'noteline-card-tags' });
     this.body = this.element.createDiv({ cls: 'noteline-card-body markdown-rendered' });
     const Observer = (this.element.win as Window & typeof globalThis).ResizeObserver;
-    this.observer = new Observer(() => view.measure(this.id, this.expanded ?? false, this.element.getBoundingClientRect().height));
+    this.observer = new Observer(() => this.measure());
     this.observer.observe(this.element);
     this.update(entry, record);
+  }
+
+  private measure(): void {
+    this.element.toggleClass('is-overflowing', this.element.scrollHeight > this.element.clientHeight + 1);
+    this.view.measure(this.id, this.expanded ?? false, this.element.getBoundingClientRect().height);
   }
 
   update(entry: TimelineEntry, record: NoteRecord): void {
@@ -409,12 +426,13 @@ class NoteCard extends Component {
       void MarkdownRenderer.render(this.view.app, record.metadata.body, renderTarget, record.path, renderer).then(() => {
         if (!this.alive || generation !== this.generation) { renderer.unload(); return; }
         for (const checkbox of renderTarget.querySelectorAll<HTMLInputElement>('input[type="checkbox"]')) checkbox.disabled = true;
-        this.view.measure(this.id, true, this.element.getBoundingClientRect().height);
+        this.measure();
       }).catch(error => {
         if (!this.alive || generation !== this.generation) return;
         this.body.setText(`Не удалось показать Markdown: ${error instanceof Error ? error.message : String(error)}`);
       });
     }
+    this.measure();
   }
 
   onunload(): void { this.alive = false; this.generation++; this.observer?.disconnect(); this.element.remove(); }
