@@ -7,9 +7,6 @@ import { createDefaultState } from '../src/domain/state.ts';
 const asModule = source => `data:text/javascript,${encodeURIComponent(source)}`;
 const obsidianStub = asModule(`
   export class App {}
-  export class Plugin { constructor(app) { this.app = app; } }
-  export class PluginSettingTab {}
-  export class Setting {}
   export class Notice { static messages = []; constructor(message) { Notice.messages.push(message); } }
   export class TFolder { constructor(path) { this.path = path; } }
   export class TFile {
@@ -26,16 +23,14 @@ const dialogsStub = asModule(`
     open() { ValueModal.opened.push(this); }
   }
 `);
-const viewStub = asModule(`export const VIEW_TYPE = 'noteline-timeline'; export class TimelineView { flushCamera() {} }`);
-const mainUrl = new URL('../src/main.ts', import.meta.url).href;
+const sessionUrl = new URL('../src/services/timeline-session.ts', import.meta.url).href;
 registerHooks({ resolve(specifier, context, nextResolve) {
   if (specifier === 'obsidian') return { url: obsidianStub, shortCircuit: true };
-  if (context.parentURL === mainUrl && specifier === './ui/dialogs.ts') return { url: dialogsStub, shortCircuit: true };
-  if (context.parentURL === mainUrl && specifier === './ui/timeline-view.ts') return { url: viewStub, shortCircuit: true };
+  if (context.parentURL === sessionUrl && specifier === '../ui/dialogs.ts') return { url: dialogsStub, shortCircuit: true };
   return nextResolve(specifier, context);
 } });
 const { TFile } = await import('obsidian');
-const { default: NotelinePlugin } = await import('../src/main.ts');
+const { TimelineSession } = await import('../src/services/timeline-session.ts');
 const { ValueModal } = await import(dialogsStub);
 
 function deferred() {
@@ -68,11 +63,10 @@ function harness(notes, state = createDefaultState()) {
     metadataCache: { getFileCache(file) { return caches.has(file.path) ? caches.get(file.path) : { tags: [] }; } },
     workspace: { getLeavesOfType: () => [] },
   };
-  const plugin = new NotelinePlugin(app);
-  plugin.store = new StateStore(async snapshot => { saves.push(structuredClone(snapshot)); }, () => {});
-  plugin.store.load(structuredClone(state));
+  const store = new StateStore(async snapshot => { saves.push(structuredClone(snapshot)); }, () => {});
+  store.load(structuredClone(state));
   let opens = 0;
-  plugin.openTimeline = async () => { opens += 1; };
+  const plugin = new TimelineSession(app, store, async () => { opens += 1; });
   plugin.report = error => { reported.push(error instanceof Error ? error.message : String(error)); };
   return { plugin, app, contents, files, caches, saves, reported, reads,
     setReader(next) { reader = next; }, get opens() { return opens; } };
@@ -290,7 +284,7 @@ test('unloading during a pending addition prevents a late entry and view opening
   const pending = deferred();
   current.setReader(() => pending.promise);
   const adding = current.plugin.addNote(current.files.get('note.md'));
-  current.plugin.onunload();
+  current.plugin.dispose();
   pending.resolve('Body');
   await adding;
   assert.deepEqual(current.plugin.store.state.timeline.entries, []);

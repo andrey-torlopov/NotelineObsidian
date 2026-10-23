@@ -1,9 +1,9 @@
 {
   "id": "noteline",
   "name": "Noteline",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "minAppVersion": "1.7.2",
-  "description": "Arrange existing notes on a horizontal timeline with expandable Markdown cards, tags, and a persistent layout.",
+  "description": "Create file-based horizontal or vertical timelines from notes, with historical dates, expandable Markdown cards, tags, and persistent layouts.",
   "author": "andrey-torlopov",
   "authorUrl": "https://github.com/andrey-torlopov",
   "isDesktopOnly": false

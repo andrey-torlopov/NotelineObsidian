@@ -1,4 +1,8 @@
-/** Calendar coordinates use UTC fields only; they are never interpreted as instants. */
+import {
+  MIN_SUPPORTED_COORDINATE, MAX_SUPPORTED_COORDINATE, formatCalendarYear, formatCalendarCentury,
+} from './metadata.ts';
+
+/** Calendar coordinates use astronomical UTC fields; labels use historical years without zero. */
 export interface TimeRange { start: number; end: number }
 export interface LayoutInput {
   id: string;
@@ -26,8 +30,8 @@ function calendarCoordinate(year: number, month = 0, day = 1): number {
   return date.getTime();
 }
 
-export const MIN_COORDINATE = calendarCoordinate(1);
-export const MAX_COORDINATE = calendarCoordinate(10_000) - 1;
+export const MIN_COORDINATE = MIN_SUPPORTED_COORDINATE;
+export const MAX_COORDINATE = MAX_SUPPORTED_COORDINATE;
 const CALENDAR_SPAN = MAX_COORDINATE - MIN_COORDINATE;
 
 function clamp(value: number, minimum: number, maximum: number): number {
@@ -46,23 +50,26 @@ export function clampRange(range: TimeRange, maxSpan = CALENDAR_SPAN): TimeRange
   return { start, end: start + span };
 }
 
-export function dateToX(coordinate: number, range: TimeRange, width: number): number {
+export function dateToX(coordinate: number, range: TimeRange, width: number, reverse = false): number {
   if (width <= 0 || !Number.isFinite(width)) return 0;
   if (range.end <= range.start) return width / 2;
-  return ((coordinate - range.start) / (range.end - range.start)) * width;
+  const ratio = (coordinate - range.start) / (range.end - range.start);
+  return (reverse ? 1 - ratio : ratio) * width;
 }
 
-export function xToDate(x: number, range: TimeRange, width: number): number {
+export function xToDate(x: number, range: TimeRange, width: number, reverse = false): number {
   if (width <= 0 || !Number.isFinite(width)) return range.start + (range.end - range.start) / 2;
-  return range.start + (x / width) * (range.end - range.start);
+  const ratio = x / width;
+  return range.start + (reverse ? 1 - ratio : ratio) * (range.end - range.start);
 }
 
 /** A factor above one zooms in. anchorRatio is the pointer position within the viewport. */
-export function zoomRange(range: TimeRange, factor: number, anchorRatio: number, maxSpan: number): TimeRange {
+export function zoomRange(range: TimeRange, factor: number, anchorRatio: number, maxSpan: number, reverse = false): TimeRange {
   if (!Number.isFinite(factor) || factor <= 0) throw new Error("Invalid zoom factor");
   if (!Number.isFinite(anchorRatio)) throw new Error("Invalid zoom anchor");
   const current = clampRange(range);
-  const anchor = clamp(anchorRatio, 0, 1);
+  const pointer = clamp(anchorRatio, 0, 1);
+  const anchor = reverse ? 1 - pointer : pointer;
   const upperBound = clamp(maxSpan, MIN_SPAN, CALENDAR_SPAN);
   if (!Number.isFinite(maxSpan) || maxSpan <= 0) throw new Error("Invalid maximum span");
   const span = clamp((current.end - current.start) / factor, MIN_SPAN, upperBound);
@@ -118,7 +125,7 @@ export function fitRange(coordinates: readonly number[], width: number, cardWidt
   return clampRange({ start: center - span / 2, end: center + span / 2 });
 }
 
-type TickUnit = "minute" | "hour" | "day" | "week" | "month" | "year";
+type TickUnit = "minute" | "hour" | "day" | "week" | "month" | "year" | "century";
 interface TickStep { unit: TickUnit; amount: number; approximate: number }
 const TICK_STEPS: TickStep[] = [
   ...[1, 5, 15, 30].map(amount => ({ unit: "minute" as const, amount, approximate: amount * MINUTE })),
@@ -126,7 +133,8 @@ const TICK_STEPS: TickStep[] = [
   { unit: "day", amount: 1, approximate: DAY },
   { unit: "week", amount: 1, approximate: 7 * DAY },
   ...[1, 3, 6].map(amount => ({ unit: "month" as const, amount, approximate: amount * 30 * DAY })),
-  ...[1, 5, 10, 50, 100, 500, 1000, 2000].map(amount => ({ unit: "year" as const, amount, approximate: amount * 365.2425 * DAY })),
+  ...[1, 5, 10, 25, 50].map(amount => ({ unit: "year" as const, amount, approximate: amount * 365.2425 * DAY })),
+  ...[1, 2, 5, 10, 20, 50].map(amount => ({ unit: "century" as const, amount, approximate: amount * 100 * 365.2425 * DAY })),
 ];
 
 function floorTick(coordinate: number, step: TickStep): Date {
@@ -147,6 +155,10 @@ function floorTick(coordinate: number, step: TickStep): Date {
   if (step.unit === "year") {
     date.setUTCFullYear(Math.floor(date.getUTCFullYear() / step.amount) * step.amount, 0, 1);
   }
+  if (step.unit === "century") {
+    const years = step.amount * 100;
+    date.setUTCFullYear(1 + Math.floor((date.getUTCFullYear() - 1) / years) * years, 0, 1);
+  }
   return date;
 }
 
@@ -158,25 +170,31 @@ function advanceTick(date: Date, step: TickStep): void {
     case "week": date.setUTCDate(date.getUTCDate() + 7 * step.amount); break;
     case "month": date.setUTCMonth(date.getUTCMonth() + step.amount); break;
     case "year": date.setUTCFullYear(date.getUTCFullYear() + step.amount); break;
+    case "century": date.setUTCFullYear(date.getUTCFullYear() + step.amount * 100); break;
   }
 }
 
 function tickLabel(date: Date, unit: TickUnit): string {
-  const year = String(date.getUTCFullYear()).padStart(4, "0");
+  const astronomicalYear = date.getUTCFullYear();
+  const historicalYear = astronomicalYear <= 0 ? 1 - astronomicalYear : astronomicalYear;
+  const year = String(historicalYear).padStart(4, "0");
+  const era = astronomicalYear <= 0 ? ' до н. э.' : '';
   const month = String(date.getUTCMonth() + 1).padStart(2, "0");
   const day = String(date.getUTCDate()).padStart(2, "0");
-  if (unit === "year") return year;
-  if (unit === "month") return `${year}-${month}`;
+  if (unit === "century") return formatCalendarCentury(astronomicalYear);
+  if (unit === "year") return astronomicalYear <= 0 ? formatCalendarYear(astronomicalYear) : year;
+  if (unit === "month") return `${year}-${month}${era}`;
   const dayLabel = `${year}-${month}-${day}`;
-  if (unit !== "minute" && unit !== "hour") return dayLabel;
-  return `${dayLabel} ${String(date.getUTCHours()).padStart(2, "0")}:${String(date.getUTCMinutes()).padStart(2, "0")}`;
+  if (unit !== "minute" && unit !== "hour") return `${dayLabel}${era}`;
+  return `${dayLabel} ${String(date.getUTCHours()).padStart(2, "0")}:${String(date.getUTCMinutes()).padStart(2, "0")}${era}`;
 }
 
 export function generateTicks(range: TimeRange, width: number): TimelineTick[] {
   if (!Number.isFinite(width) || width <= 0 || range.end <= range.start) return [];
   const targetCount = clamp(Math.floor(width / 120), 2, 128);
   const desiredInterval = (range.end - range.start) / targetCount;
-  const step = TICK_STEPS.find(candidate => candidate.approximate >= desiredInterval) ?? TICK_STEPS[TICK_STEPS.length - 1]!;
+  const centuries = new Date(range.end).getUTCFullYear() - new Date(range.start).getUTCFullYear() >= 300;
+  const step = TICK_STEPS.find(candidate => (!centuries || candidate.unit === 'century') && candidate.approximate >= desiredInterval) ?? TICK_STEPS[TICK_STEPS.length - 1]!;
   const date = floorTick(range.start, step);
   if (date.getTime() < range.start) advanceTick(date, step);
   const ticks: TimelineTick[] = [];
@@ -194,7 +212,7 @@ export function generateTicks(range: TimeRange, width: number): TimelineTick[] {
 }
 
 /** Empty levels preserve manual placement; very sparse gaps have bounded height. */
-export function layoutCards(inputs: readonly LayoutInput[], range: TimeRange, width: number): { items: LayoutItem[]; height: number } {
+export function layoutCards(inputs: readonly LayoutInput[], range: TimeRange, width: number, reverse = false): { items: LayoutItem[]; height: number } {
   const ids = new Set<string>();
   for (const input of inputs) {
     if (ids.has(input.id) || !Number.isFinite(input.coordinate) || !Number.isSafeInteger(input.preferredLane) ||
@@ -207,9 +225,9 @@ export function layoutCards(inputs: readonly LayoutInput[], range: TimeRange, wi
   const lanes = new Map<number, { height: number; items: LayoutItem[] }>();
   const items: LayoutItem[] = [];
   for (const input of sorted) {
-    const anchor = dateToX(input.coordinate, range, width);
+    const anchor = dateToX(input.coordinate, range, width, reverse);
     let x = anchor - input.width / 2;
-    if (anchor >= 0 && anchor <= width && width >= input.width) x = clamp(x, 0, width - input.width);
+    if (anchor >= 0 && anchor <= width) x = clamp(x, 0, Math.max(0, width - input.width));
     let lane = input.preferredLane;
     while (lanes.get(lane)?.items.some(other => x < other.x + other.width + GAP && x + input.width + GAP > other.x)) {
       if (lane === Number.MAX_SAFE_INTEGER) throw new Error("Timeline lane exceeds the supported integer range");
@@ -240,4 +258,19 @@ export function layoutCards(inputs: readonly LayoutInput[], range: TimeRange, wi
     bottom -= level.height + GAP;
   }
   return { items, height: inputs.length ? height : 0 };
+}
+
+/** Time runs along y; measured card widths determine lanes to the right of a left axis. */
+export function layoutVerticalCards(inputs: readonly LayoutInput[], range: TimeRange, height: number, reverse = false): { items: LayoutItem[]; width: number } {
+  const horizontal = layoutCards(inputs.map(input => ({ ...input, width: input.height, height: input.width })), range, height, reverse);
+  return {
+    items: horizontal.items.map(item => ({
+      ...item,
+      x: horizontal.height - item.y - item.height,
+      y: item.x,
+      width: item.height,
+      height: item.width,
+    })),
+    width: horizontal.height,
+  };
 }

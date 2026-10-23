@@ -4,11 +4,23 @@
 
 ## What is stored
 
-Notes remain Markdown files at their existing vault paths. Noteline reads their contents and metadata to render cards. It stores its own state through Obsidian's plugin data API, normally at `.obsidian/plugins/noteline/data.json`. A custom vault configuration folder changes the `.obsidian` part of that path.
+Version 0.3.0 stores each timeline as a separate `.timeline` JSON file inside the vault, for example `Research/Family history.timeline`. Different files can be open in different tabs.
 
-The data file contains schema version `1`, date-property settings, selected note paths and entry IDs, preferred vertical levels, expanded/collapsed states, saved fallback dates, and the last viewport. It contains no duplicate archive of note bodies or attachments.
+| File | What it owns |
+| --- | --- |
+| Markdown notes and attachments | The source text, dates, tags, and media |
+| Each `.timeline` file | Schema version `1`, date-property settings, note paths and entry IDs, layout levels, expanded states, fallback dates, viewport, orientation, and chronological direction |
+| `plugins/noteline/data.json` inside the vault configuration folder | Last-opened path and migration bookkeeping under `notelineFiles`; retained legacy fields after migration |
 
-Adding a note, moving or expanding a card, and removing a card from the timeline change plugin state. They do not rewrite or delete the note. **Adding a tag explicitly writes to the source note.** YAML writes can change YAML formatting while preserving other property values and the body. [Tag write rules](dates-and-tags.md).
+The `.timeline` file is the shared source for its timeline state. It stores vault-relative note paths, not note bodies or attachments. Each file has independent membership, date settings, fallback dates, and layout. The same note can appear on several timelines without being duplicated. Copying a timeline copies these references and settings, not its notes.
+
+Adding a note, arranging or expanding a card, and removing a card change that timeline file. They do not rewrite or delete the note. **Adding a tag explicitly writes to the source note**, so other timelines using it also see the change. YAML writes can change formatting while preserving other property values and the body. [Tag write rules](dates-and-tags.md).
+
+## Migration from the single-timeline versions
+
+On first load, valid legacy state in `data.json` is transferred to `Noteline.timeline`. If that name contains different data, a free name such as `Noteline 2.timeline` is used. An existing equivalent migrated file can be reused. The original legacy fields remain in `data.json` as a recovery copy; `notelineFiles.migratedPath` records the migration destination and `lastPath` remembers navigation.
+
+After migration, the `.timeline` file is authoritative. The old fields are not a second actively synchronized timeline. Invalid legacy data is reported and preserved instead of being replaced with an empty file. Preserve `data.json` when updating so migration and its recovery copy remain available.
 
 ## Network and external content
 
@@ -16,19 +28,29 @@ Noteline makes no network requests of its own and includes no telemetry, account
 
 ## Backup and restore
 
-1. Wait for **Сохранено** — Saved. Resolve any save error first.
+1. Wait for **Сохранено** — Saved — on the timelines you changed. Save a copy of any unsaved timeline before resolving a conflict.
 2. Close Obsidian on devices using this vault and pause synchronization before copying or restoring files.
-3. Back up the complete vault, including notes, attachments, and the hidden configuration folder with `plugins/noteline/data.json`.
-4. To restore, preserve a copy of the current files first, restore the matching vault and plugin data, then open Obsidian and verify note paths, card membership, fallback dates, and layout.
+3. Back up the complete vault, including `.timeline` files, notes, attachments, and the hidden configuration folder with `plugins/noteline/data.json`.
+4. To restore, preserve a copy of the current files first, restore matching timelines and their source files, then open Obsidian and verify note paths, membership, fallback dates, layout, and orientation.
 
-Noteline does not create automatic backups. A copy of `data.json` alone cannot restore deleted notes. A copy of the notes alone cannot restore timeline membership and layout.
+Noteline does not maintain automatic versioned backups. Retaining legacy data during migration is not an ongoing backup system. The toolbar's save-copy action creates another timeline snapshot with the same note references. Timeline files alone cannot restore deleted notes; notes alone cannot restore timeline membership and layout.
 
-Deleting `data.json` resets the timeline and settings. It also discards saved fallback dates, so adding an undated note again may place it on a different day. Do not use this as a routine repair step.
+Deleting `data.json` in 0.3.0 does not delete existing `.timeline` files, but removes navigation preferences and any retained legacy recovery data. Deleting a `.timeline` file removes that timeline, not its source notes. The toolbar asks for confirmation and sends the file to Obsidian's configured trash. Do not delete either file as a routine repair step.
 
 ## Multiple devices
 
-Noteline delegates file transport to your sync tool. Check that it actually includes plugin data; installation and settings sync depend on that tool's configuration. Use one active writer and let synchronization finish before editing the timeline on another device.
+Synchronize `.timeline` files together with their notes and attachments, keeping the same paths relative to the vault. Plugin installation or settings sync alone is insufficient. On every device, enable **Settings → Sync → Selective sync → Sync all other types** for Obsidian Sync. Sync settings are device-specific; restart after changing selective sync, with a force-quit if needed on mobile. [Official Sync settings](https://obsidian.md/help/sync/settings).
 
-A clean external state change can be reloaded. If one arrives during a local write or while changes remain unsaved, Noteline reports **Конфликт настроек** — Settings conflict — and blocks further changes. It does not merge two layouts. Preserve both copies, stop the other writer, choose the data file to retain while Obsidian is closed, and reload. In-memory changes can be lost on reload; copy their arrangement manually before proceeding if needed.
+Obsidian documents “last modified wins” behavior for non-Markdown files. `.timeline` is a custom non-Markdown file, so do not expect note-style merging or plugin-settings JSON merging to combine layouts. Other providers may also replace earlier versions. Use one active writer per timeline and let synchronization finish before switching devices. [Official conflict rules](https://obsidian.md/help/sync/troubleshoot).
+
+Noteline checks the current timeline text before saving. If it differs from the version the tab loaded, the stale write is blocked. This local check cannot prevent a sync provider from replacing a file later. A clean external update can be reloaded automatically; unsaved local changes produce a conflict. Preserve them with the toolbar's save-copy action, then use reload from file and confirm replacing the in-memory arrangement. The plugin does not automatically merge two layouts.
+
+### Desktop and iOS
+
+**The notes arrived, but the timeline did not.** Confirm the `.timeline` file exists on the second device, its folder is not excluded, and its custom file type is included in sync there. Install the same compatible Noteline version on that device and open the file through the timeline selector.
+
+**The timeline opens, but notes are missing.** Its note paths are relative to the vault. Wait for those notes and attachments to arrive at the same paths; copying only the timeline cannot supply them.
+
+**Will edits from desktop and iOS merge?** No collaborative merge is provided. Wait for sync and switch devices serially; preserve separate copies when a conflict is reported. On macOS with Obsidian 1.14.4, a clean external `.timeline` update applied orientation, direction, and expanded states. Actual sync transport/provider conflicts and physical iOS/Android operation remain unverified.
 
 An invalid or unsupported schema is opened in read-only mode rather than overwritten. Keep the original file and restore a known-good copy or use the compatible plugin version. [Troubleshooting](troubleshooting.md).

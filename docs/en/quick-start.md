@@ -2,11 +2,17 @@
 
 **English** · [Русский](../ru/quick-start.md) · [Documentation](index.md)
 
+## Open a timeline
+
+Version 0.3.0 uses independent `.timeline` files. Run **Noteline: Открыть временную ось** — Open timeline — from the command palette or ribbon. If no timeline exists, create one when prompted. **Noteline: Создать временную ось** creates another file; **Noteline: Выбрать временную ось** selects an existing file. Different files can stay open in separate tabs.
+
+The toolbar's **Выбрать временную ось** selector opens another timeline. **Создать ось**, **Сохранить копию оси**, **Перечитать файл оси**, and **Удалить ось** manage the current document. Reloading and deletion require confirmation; copying keeps references to the same notes. [Timeline files](timeline-files.md).
+
 ## Add and read notes
 
-Open **Noteline: Открыть временную ось** — Open timeline — from the command palette or ribbon. Choose **Добавить заметку** — Add note. Search the filename or full vault path. The search spans the vault; identical basenames are distinguished by path.
+Choose **Добавить заметку** — Add note — in the intended timeline tab. Search the filename or full vault path. The search spans the vault; identical basenames are distinguished by path.
 
-Other entry points are **Добавить на временную ось** in a Markdown file's context menu and **Noteline: Добавить активную заметку на ось** for the active note. Adding the same note again focuses its existing card.
+Other entry points are **Добавить на временную ось** in a Markdown file's context menu and **Noteline: Добавить активную заметку на ось** for the active note. These let you choose the destination timeline. Adding the same note again focuses its existing card in that timeline; another timeline can use the same note independently.
 
 Missing dates and tags do not block addition. An undated note receives a saved fallback date; a filled but invalid date is reported for correction. [Metadata rules](dates-and-tags.md).
 
@@ -18,25 +24,28 @@ The title opens the source note in a separate tab. Edit there: the card is a rea
 
 | Control | Behavior |
 | --- | --- |
-| Vertical grip | Drag a card up/down without changing its date |
-| Card **↑/↓** | Move to an available level; works with touch buttons |
-| Focused grip + **↑/↓** keys | Keyboard equivalent of moving a card |
+| **Ориентация оси** | Choose **Горизонтальная** or **Вертикальная** — horizontal or vertical time axis |
+| **Направление дат** | Choose **От старых к новым** or **От новых к старым** — earlier-to-later or reversed |
+| Card grip | Drag across the axis: up/down in horizontal mode, right/left in vertical mode; the date stays unchanged |
+| **Дальше от оси / Ближе к оси** | Move to an available level farther from / closer to the axis; also available to touch users |
+| Focused grip + **↑/→** or **↓/←** | Increase or decrease the cross-axis level, respectively |
 | **Escape** during grip drag | Cancel the move while the grip has focus |
 | **−/+** | Zoom around the center of the time window |
-| `Ctrl/Cmd` + wheel over the field | Zoom around the date under the pointer |
-| Toolbar **←/→** | Pan to earlier or later dates |
-| `Shift` + wheel or horizontal trackpad scroll | Pan the time window |
-| Ordinary wheel | Scroll levels; over expanded text, scroll its body first |
-| **Показать все** — Show all | Fit dates horizontally; tall sets still scroll vertically |
+| `Ctrl/Cmd` + wheel over the field | Zoom around the pointer's date along the active axis; wheel delta controls zoom in both orientations |
+| **Сдвинуть в прошлое / Сдвинуть в будущее** | Pan to earlier / later dates, with the same chronological meaning in reversed mode |
+| `Shift` + wheel | Pan the time window in either orientation |
+| Horizontal trackpad gesture in horizontal mode | Pan the time window |
+| Ordinary wheel | Scroll cross-axis levels: vertically in horizontal mode, horizontally in vertical mode; over expanded text, scroll its body first |
+| **Показать все** — Show all | Fit dates along the active time axis; additional levels remain scrollable across it |
 | **Сегодня** — Today | Center today without changing the window duration |
-| **К дате** — Go to date | Enter `YYYY-MM-DD` or `YYYY-MM-DD HH:mm` |
-| **Параметры даты** — Date properties | Change property names and priority |
+| **К дате** — Go to date | Enter a supported value, such as `2026-10-22`, `2026-10`, `2026`, `XIX`, or `II BC` |
+| **Параметры даты** — Date properties | Change property names and priority for this timeline file |
 
-Coincident or nearby dates use additional levels to avoid overlap. Your preferred level is retained; the effective level may change with zoom or card expansion. The narrowest time window is one hour; the widest depends on the selected dates and fitted view.
+Earlier-to-later runs left to right in horizontal mode and top to bottom in vertical mode; reversed mode swaps those directions. The orientation and direction are saved in this timeline file. Coincident or nearby dates use additional cross-axis levels to avoid overlap. Your preferred level is retained; the effective level may change with zoom or expansion. The narrowest time window is one hour; the widest depends on the selected dates and fitted view.
 
-Rings on the thin time axis mark note dates and follow the selected range. Notes missing a date or tags use a gray ring and a dashed connector, matching their gray card frame. The axis stays visible while the cards scroll vertically.
+Rings on the thin time axis mark note dates and follow the selected range. Notes missing a date or tags use a gray ring and a dashed connector, matching their gray card frame. The axis stays visible while cross-axis levels scroll. In vertical mode, use the horizontal scrollbar to browse those levels; ordinary scrolling over the field also moves them horizontally. Use the date-navigation buttons to move through time on a touch device.
 
-Pinch-to-zoom is not implemented. Use buttons on a phone or tablet; physical-device verification is still outstanding.
+Pinch-to-zoom is not implemented. Use buttons on a phone or tablet; physical iOS/Android and touch gestures remain unverified.
 
 ## Tags and removal
 
@@ -44,4 +53,4 @@ Use the **+** beside the tags or **Действия с карточкой → Д
 
 **Действия с карточкой → Убрать с оси** removes membership and layout only. The note stays in the vault.
 
-The toolbar shows saving status. If it reports an error, retry before closing; see [troubleshooting](troubleshooting.md).
+The toolbar shows saving status for this file. For an I/O error, fix the cause and click **Ошибка сохранения — нажмите для повтора**. For a file conflict, preserve unsaved work with **Сохранить копию оси**, then use **Перечитать файл оси** if you want the disk version. Confirming reload replaces the in-memory arrangement. See [troubleshooting](troubleshooting.md).

@@ -33,6 +33,59 @@ test('state and saved fallback date survive JSON round trip and unknown fields s
   assert.equal(validated.timeline.entries[0].fallbackDate, '2026-10-22');
 });
 
+test('legacy schema-one documents retain absent orientation, reverse and horizontal camera fields', () => {
+  const legacy = example();
+  const restored = validateState(JSON.parse(JSON.stringify(legacy)));
+  assert.equal(restored.schemaVersion, 1);
+  assert.deepEqual(restored, legacy);
+  assert.equal(Object.hasOwn(restored.timeline, 'orientation'), false);
+  assert.equal(Object.hasOwn(restored.timeline, 'reverse'), false);
+  assert.equal(Object.hasOwn(restored.timeline.viewport, 'scrollLeft'), false);
+});
+
+test('vertical orientation, reversed direction and cross-axis scroll survive serialization', () => {
+  for (const orientation of ['horizontal', 'vertical']) {
+    for (const reverse of [false, true]) {
+      const state = example();
+      state.timeline.orientation = orientation;
+      state.timeline.reverse = reverse;
+      state.timeline.viewport.scrollLeft = 42.5;
+      assert.deepEqual(validateState(JSON.parse(JSON.stringify(state))), state);
+    }
+  }
+});
+
+test('unsupported orientation, nonboolean reverse and invalid scrollLeft are rejected', () => {
+  for (const orientation of ['diagonal', '', true, 0, null]) {
+    const state = example();
+    state.timeline.orientation = orientation;
+    assert.throws(() => validateState(state), StateValidationError);
+  }
+  for (const reverse of ['false', '', 0, 1, null]) {
+    const state = example();
+    state.timeline.reverse = reverse;
+    assert.throws(() => validateState(state), StateValidationError);
+  }
+  for (const scrollLeft of [-1, Infinity, -Infinity, NaN, '0', null]) {
+    const state = example();
+    state.timeline.viewport.scrollLeft = scrollLeft;
+    assert.throws(() => validateState(state), StateValidationError);
+  }
+});
+
+test('historical BCE viewport and the expanded calendar boundaries remain valid', () => {
+  const ancient = example();
+  ancient.timeline.orientation = 'vertical';
+  ancient.timeline.reverse = true;
+  ancient.timeline.viewport = { start: MIN_COORDINATE, end: MIN_COORDINATE + 366 * 86_400_000, scrollTop: 0, scrollLeft: 0 };
+  const restored = validateState(JSON.parse(JSON.stringify(ancient)));
+  assert.ok(new Date(restored.timeline.viewport.start).getUTCFullYear() < 0);
+  assert.deepEqual(restored.timeline.viewport, ancient.timeline.viewport);
+  const fullCalendar = example();
+  fullCalendar.timeline.viewport = { start: MIN_COORDINATE, end: MAX_COORDINATE, scrollTop: 0, scrollLeft: 0 };
+  assert.deepEqual(validateState(fullCalendar).timeline.viewport, fullCalendar.timeline.viewport);
+});
+
 test('newer schema, broken shapes and duplicate entries fail without resetting data', () => {
   for (const corrupt of [false, [], {}, { schemaVersion: 2 }, { schemaVersion: 1 }, { ...example(), settings: { dateProperties: 'date' } }]) {
     assert.throws(() => validateState(corrupt), StateValidationError);

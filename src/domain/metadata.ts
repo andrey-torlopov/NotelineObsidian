@@ -2,7 +2,7 @@
 export interface CalendarDate {
   value: string;
   coordinate: number;
-  precision: 'day' | 'minute';
+  precision: 'minute' | 'day' | 'month' | 'year' | 'century';
 }
 
 export type DateResolution =
@@ -47,8 +47,77 @@ interface Header {
   hasMetadata: boolean;
 }
 
-const DATE_EXAMPLE = 'Допустимый формат: YYYY-MM-DD или YYYY-MM-DD HH:mm.';
+const DATE_EXAMPLE = 'Допустимые форматы: YYYY-MM-DD, YYYY-MM-DD HH:mm, YYYY-MM, год 1–9999 или римский век I–C. Для года и века допускается BC, BCE, д.н.э. или до н.э.';
 const TAG_PATTERN = /^[\p{L}\p{M}\p{N}_-]+(?:\/[\p{L}\p{M}\p{N}_-]+)*$/u;
+
+/** Gregorian components use astronomical years internally: historical 1 BC is year 0. */
+export function calendarCoordinate(astronomicalYear: number, month = 1, day = 1, hour = 0, minute = 0): number {
+  const date = new Date(0);
+  date.setUTCFullYear(astronomicalYear, month - 1, day);
+  date.setUTCHours(hour, minute, 0, 0);
+  return date.getTime();
+}
+
+// C BC starts in historical 10000 BC; C CE finishes in year 10000.
+export const MIN_SUPPORTED_COORDINATE = calendarCoordinate(-9999);
+export const MAX_SUPPORTED_COORDINATE = calendarCoordinate(10001) - 1;
+
+function romanCentury(value: number): string {
+  const numerals: readonly (readonly [number, string])[] = [[100, 'C'], [90, 'XC'], [50, 'L'], [40, 'XL'], [10, 'X'], [9, 'IX'], [5, 'V'], [4, 'IV'], [1, 'I']];
+  let remaining = value;
+  let result = '';
+  for (const [amount, numeral] of numerals) {
+    while (remaining >= amount) { result += numeral; remaining -= amount; }
+  }
+  return result;
+}
+
+function parseRomanCentury(value: string): number | null {
+  if (!/^[IVXLC]+$/.test(value)) return null;
+  const amounts: Record<string, number> = { I: 1, V: 5, X: 10, L: 50, C: 100 };
+  let result = 0;
+  for (let index = 0; index < value.length; index += 1) {
+    const amount = amounts[value[index] ?? ''] ?? 0;
+    const following = amounts[value[index + 1] ?? ''] ?? 0;
+    result += amount < following ? -amount : amount;
+  }
+  return result >= 1 && result <= 100 && romanCentury(result) === value ? result : null;
+}
+
+function assertDisplayYear(astronomicalYear: number): void {
+  if (!Number.isSafeInteger(astronomicalYear) || astronomicalYear < -9999 || astronomicalYear > 10000) {
+    throw new Error('Год вне поддерживаемого диапазона календаря.');
+  }
+}
+
+export function formatCalendarYear(astronomicalYear: number, locale: 'ru' | 'en' = 'ru'): string {
+  assertDisplayYear(astronomicalYear);
+  return astronomicalYear > 0 ? String(astronomicalYear) : `${1 - astronomicalYear} ${locale === 'ru' ? 'до н. э.' : 'BC'}`;
+}
+
+export function formatCalendarCentury(astronomicalYear: number, locale: 'ru' | 'en' = 'ru'): string {
+  assertDisplayYear(astronomicalYear);
+  const century = astronomicalYear > 0 ? Math.floor((astronomicalYear - 1) / 100) + 1 : Math.floor(-astronomicalYear / 100) + 1;
+  return `${romanCentury(century)} ${locale === 'ru' ? 'век' : 'century'}${astronomicalYear <= 0 ? locale === 'ru' ? ' до н. э.' : ' BC' : ''}`;
+}
+
+/** Format only the source precision. A month/year/century never acquires a visible invented day. */
+export function formatCalendarDate(date: CalendarDate, locale: 'ru' | 'en' = 'ru'): string {
+  if (!Number.isFinite(date.coordinate) || date.coordinate < MIN_SUPPORTED_COORDINATE || date.coordinate > MAX_SUPPORTED_COORDINATE) {
+    throw new Error('Некорректная календарная координата.');
+  }
+  const components = new Date(date.coordinate);
+  const year = components.getUTCFullYear();
+  if (date.precision === 'year') return formatCalendarYear(year, locale);
+  if (date.precision === 'century') return formatCalendarCentury(year, locale);
+  const month = String(components.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(components.getUTCDate()).padStart(2, '0');
+  const calendarYear = year > 0 ? String(year).padStart(4, '0') : formatCalendarYear(year, locale);
+  if (date.precision === 'month') return year > 0 ? `${calendarYear}-${month}` : `${month} ${calendarYear}`;
+  const calendarDay = year > 0 ? `${calendarYear}-${month}-${day}` : `${month}-${day} ${calendarYear}`;
+  if (date.precision === 'day') return calendarDay;
+  return `${calendarDay} ${String(components.getUTCHours()).padStart(2, '0')}:${String(components.getUTCMinutes()).padStart(2, '0')}`;
+}
 
 function linesOf(text: string, start = 0): Line[] {
   const lines: Line[] = [];
@@ -81,7 +150,33 @@ export function extractFrontmatter(markdown: string): { text: string; start: num
 }
 
 /** Strict Gregorian wall-calendar parser. Never delegates to Date.parse or the host timezone. */
-export function parseCalendarDate(value: string): CalendarDate | null {
+export function parseCalendarDate(value: string | number): CalendarDate | null {
+  if (typeof value === 'number') {
+    if (!Number.isSafeInteger(value) || value < 1 || value > 9999) return null;
+    return { value: String(value).padStart(4, '0'), coordinate: calendarCoordinate(value), precision: 'year' };
+  }
+  const era = /[ \t]+(?:BC|BCE|д\.[ \t]*н\.[ \t]*э\.|до[ \t]+н\.[ \t]*э\.)$/iu.exec(value);
+  const historical = era ? value.slice(0, era.index) : value;
+  const beforeCommonEra = era !== null;
+  if (/^\d{1,4}$/.test(historical)) {
+    const year = Number(historical);
+    if (year < 1 || year > 9999) return null;
+    return { value: `${String(year).padStart(4, '0')}${beforeCommonEra ? ' BC' : ''}`,
+      coordinate: calendarCoordinate(beforeCommonEra ? 1 - year : year), precision: 'year' };
+  }
+  const century = parseRomanCentury(historical);
+  if (century !== null) {
+    return { value: `${historical}${beforeCommonEra ? ' BC' : ''}`,
+      coordinate: calendarCoordinate(beforeCommonEra ? 1 - century * 100 : (century - 1) * 100 + 1), precision: 'century' };
+  }
+  if (beforeCommonEra) return null;
+  const monthOnly = /^(\d{4})-(\d{2})$/.exec(value);
+  if (monthOnly) {
+    const year = Number(monthOnly[1]);
+    const month = Number(monthOnly[2]);
+    if (year < 1 || year > 9999 || month < 1 || month > 12) return null;
+    return { value, coordinate: calendarCoordinate(year, month), precision: 'month' };
+  }
   const match = /^(\d{4})-(\d{2})-(\d{2})(?:([ T])(\d{2}):(\d{2})(?::(\d{2}))?)?$/.exec(value);
   if (!match) return null;
   const year = Number(match[1]);
@@ -94,12 +189,9 @@ export function parseCalendarDate(value: string): CalendarDate | null {
   const leap = year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
   const monthDays = [31, leap ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
   if (day > (monthDays[month - 1] ?? 0)) return null;
-  const date = new Date(0);
-  date.setUTCFullYear(year, month - 1, day);
-  date.setUTCHours(hour, minute, 0, 0);
   const precision = match[4] ? 'minute' : 'day';
   return { value: `${match[1]}-${match[2]}-${match[3]}${precision === 'minute' ? ` ${match[5]}:${match[6]}` : ''}`,
-    coordinate: date.getTime(), precision };
+    coordinate: calendarCoordinate(year, month, day, hour, minute), precision };
 }
 
 /** Only the point of insertion uses local calendar time; persisted fallback values stay fixed. */
@@ -256,15 +348,18 @@ function resolveDate(header: Header, options: MetadataOptions): DateResolution {
   for (const property of options.dateProperties) {
     const value = options.frontmatter?.[property];
     if (isEmpty(value)) continue;
-    const date = typeof value === 'string' ? parseCalendarDate(value.trim()) : null;
+    const date = typeof value === 'string' || typeof value === 'number' ? parseCalendarDate(typeof value === 'string' ? value.trim() : value) : null;
     sources.push({ source: `property:${property}`, date,
-      message: `Свойство «${property}»: ${typeof value === 'string' ? 'некорректная или неподдерживаемая дата' : 'дата должна быть строкой'}. ${DATE_EXAMPLE}` });
+      message: `Свойство «${property}»: ${typeof value === 'string' || typeof value === 'number' ? 'некорректная или неподдерживаемая дата' : 'дата должна быть строкой либо целым годом'}. ${DATE_EXAMPLE}` });
   }
   if (header.dates.length > 1) {
     sources.push({ source: 'marker', date: null, message: 'В начальном блоке несколько строк 📅; оставьте одну строку даты.' });
   } else if (header.dates[0]) {
-    const marker = /^📅 (\d{4}-\d{2}-\d{2}(?: \d{2}:\d{2})?)[ \t]*$/u.exec(header.dates[0].text);
-    const date = marker ? parseCalendarDate(marker[1] ?? '') : null;
+    const marker = /^📅 (\S(?:.*\S)?)[ \t]*$/u.exec(header.dates[0].text);
+    const candidate = marker?.[1] ?? '';
+    // Keep the original marker grammar for clock values; YAML also accepts ISO T notation.
+    const date = marker && !/^\d{4}-\d{2}-\d{2}T/.test(candidate) && !/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:/.test(candidate)
+      ? parseCalendarDate(candidate) : null;
     sources.push({ source: 'marker', date, message: `Строка 📅 содержит некорректную или неподдерживаемую дату. ${DATE_EXAMPLE}` });
   }
   const selected = sources[0];

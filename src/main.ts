@@ -1,241 +1,304 @@
 import { Notice, Plugin, PluginSettingTab, Setting, TFile, TFolder, type App } from 'obsidian';
-import { calendarDateToday, normalizeTag, parseCalendarDate, type CalendarDate, type NoteMetadata } from './domain/metadata.ts';
-import type { TimelineEntry } from './domain/state.ts';
+import { createDefaultState, validateState, type PluginState } from './domain/state.ts';
 import { StateStore } from './services/persistence.ts';
-import { addTag, parseNote } from './services/notes.ts';
-import { NotePicker, ValueModal } from './ui/dialogs.ts';
+import { TimelineFileRepository, parseTimeline, serializeTimeline } from './services/timeline-files.ts';
+import { TimelineSession } from './services/timeline-session.ts';
+import { ConfirmationModal, TimelinePicker, ValueModal } from './ui/dialogs.ts';
 import { TimelineView, VIEW_TYPE } from './ui/timeline-view.ts';
+export type { NoteRecord } from './services/timeline-session.ts';
 
-export interface NoteRecord {
-  entryId: string;
-  path: string;
-  title: string;
-  metadata?: NoteMetadata;
-  effectiveDate?: CalendarDate;
-  missingDate: boolean;
-  pending: boolean;
-  error?: string;
+interface SessionHandle {
+  file: TFile;
+  session: TimelineSession;
+  expectedText: string;
+  pendingText: string | null;
+  references: number;
+  reload: Promise<void>;
 }
 
+/** File-backed timelines are shared vault data. Plugin data only remembers local navigation and the legacy backup. */
 export default class NotelinePlugin extends Plugin {
-  store!: StateStore;
-  records = new Map<string, NoteRecord>();
-  requestedFocus: string | null = null;
-  externalRevision = 0;
-  private listeners = new Set<() => void>();
-  private generations = new Map<string, number>();
-  private queue = new Set<string>();
-  private activeReads = 0;
+  repository!: TimelineFileRepository;
+  private handles = new Map<TFile, SessionHandle>();
+  private loading = new Map<TFile, Promise<SessionHandle>>();
+  private collectionListeners = new Set<() => void>();
+  private localData: Record<string, unknown> = {};
+  private preferencesWritable = true;
+  private preferenceWrite: Promise<void> = Promise.resolve();
+  private renameQueue: Promise<void> = Promise.resolve();
   private stopped = false;
 
   async onload(): Promise<void> {
-    this.store = new StateStore(state => this.saveData(state), () => this.emit());
-    try { this.store.load(await this.loadData()); }
-    catch (error) {
-      this.store.load({ schemaVersion: -1 });
-      this.store.error = `Не удалось прочитать состояние: ${error instanceof Error ? error.message : String(error)}. Файл не изменен.`;
-      new Notice(this.store.error);
-    }
+    this.repository = new TimelineFileRepository(this.app);
     this.registerView(VIEW_TYPE, leaf => new TimelineView(leaf, this));
+    this.registerExtensions(['timeline'], VIEW_TYPE);
+    try {
+      const raw: unknown = await this.loadData();
+      if (raw && typeof raw === 'object' && !Array.isArray(raw)) this.localData = { ...raw as Record<string, unknown> };
+      else if (raw != null) { this.preferencesWritable = false; new Notice('Данные старой версии повреждены. Исходный data.json не изменён.'); }
+      await this.migrateLegacy();
+    } catch (error) { this.preferencesWritable = false; this.report(error); }
     this.addRibbonIcon('git-commit-horizontal', 'Открыть временную ось', () => { void this.openTimeline(); });
     this.addCommand({ id: 'open-timeline', name: 'Открыть временную ось', callback: () => { void this.openTimeline(); } });
+    this.addCommand({ id: 'choose-timeline', name: 'Выбрать временную ось', callback: () => this.chooseTimeline() });
+    this.addCommand({ id: 'create-timeline', name: 'Создать временную ось', callback: () => this.createTimelineDialog() });
     this.addCommand({ id: 'add-active-note', name: 'Добавить активную заметку на ось', checkCallback: checking => {
       const file = this.app.workspace.getActiveFile();
       if (!file || file.extension !== 'md') return false;
-      if (!checking) void this.addNote(file);
+      if (!checking) this.chooseTimeline(async target => {
+        const session = await this.acquireSession(target);
+        try { await session.addNote(file); } finally { await this.releaseSession(session); }
+      });
       return true;
     } });
     this.addSettingTab(new NotelineSettings(this.app, this));
     this.registerEvent(this.app.workspace.on('file-menu', (menu, file) => {
-      if (file instanceof TFile && file.extension === 'md') menu.addItem(item => item.setTitle('Добавить на временную ось').setIcon('git-commit-horizontal').onClick(() => this.addNote(file)));
+      if (file instanceof TFile && file.extension === 'md') menu.addItem(item => item.setTitle('Добавить на временную ось').setIcon('git-commit-horizontal').onClick(() => {
+        this.chooseTimeline(async target => {
+          const session = await this.acquireSession(target);
+          try { await session.addNote(file); } finally { await this.releaseSession(session); }
+        });
+      }));
+      if (file instanceof TFile && file.extension === 'timeline') menu.addItem(item => item.setTitle('Открыть в Noteline').setIcon('git-commit-horizontal').onClick(() => this.openTimeline(file)));
     }));
     this.registerEvent(this.app.metadataCache.on('changed', file => this.refreshPath(file.path)));
-    this.registerEvent(this.app.vault.on('modify', file => this.refreshPath(file.path)));
-    this.registerEvent(this.app.vault.on('create', file => this.refreshPath(file.path)));
+    this.registerEvent(this.app.vault.on('modify', file => {
+      if (file instanceof TFile && file.extension === 'timeline') {
+        const handle = this.findHandle(file);
+        if (handle) this.queueReload(handle);
+      } else this.refreshPath(file.path);
+    }));
+    this.registerEvent(this.app.vault.on('create', file => {
+      if (file instanceof TFile && file.extension === 'timeline') this.collectionChanged();
+      else this.refreshPath(file.path);
+    }));
     this.registerEvent(this.app.vault.on('delete', file => {
-      for (const entry of this.store.state.timeline.entries) if (entry.filePath === file.path || (file instanceof TFolder && entry.filePath.startsWith(`${file.path}/`))) this.refresh(entry.entryId);
+      for (const handle of this.handles.values()) {
+        if (handle.file === file || (file instanceof TFolder && handle.file.path.startsWith(`${file.path}/`))) {
+          handle.session.store.status = 'readonly';
+          handle.session.store.error = 'Файл оси удалён. Несохранённое состояние можно сохранить в новую копию.';
+          handle.session.notify();
+        } else handle.session.refreshAll();
+      }
+      this.collectionChanged();
     }));
     this.registerEvent(this.app.vault.on('rename', (file, oldPath) => {
-      if (!this.store.writable) return;
-      const affected = this.store.state.timeline.entries.filter(entry => entry.filePath === oldPath || (file instanceof TFolder && entry.filePath.startsWith(`${oldPath}/`)));
-      if (!affected.length) return;
-      this.store.change(() => {
-        for (const entry of affected) entry.filePath = file.path + entry.filePath.slice(oldPath.length);
-      });
-      for (const entry of affected) this.refresh(entry.entryId);
+      if (!(file instanceof TFile) && !(file instanceof TFolder)) return;
+      const newPath = file.path;
+      this.renameQueue = this.renameQueue.then(() => this.renameReferences(file, oldPath, newPath)).catch(error => this.report(error));
     }));
-    this.app.workspace.onLayoutReady(() => { if (!this.stopped) this.refreshAll(); });
   }
 
-  subscribe(listener: () => void): () => void {
-    this.listeners.add(listener);
-    return () => this.listeners.delete(listener);
-  }
-
-  private emit(): void { if (!this.stopped) for (const listener of this.listeners) listener(); }
-
-  refreshAll(): void {
-    const ids = new Set(this.store.state.timeline.entries.map(entry => entry.entryId));
-    for (const id of this.records.keys()) if (!ids.has(id)) this.records.delete(id);
-    for (const entry of this.store.state.timeline.entries) this.refresh(entry.entryId);
-    this.emit();
-  }
-
-  private refreshPath(path: string): void {
-    for (const entry of this.store.state.timeline.entries) if (entry.filePath === path) this.refresh(entry.entryId);
-  }
-
-  refresh(id: string): void {
-    if (this.stopped) return;
-    this.generations.set(id, (this.generations.get(id) ?? 0) + 1);
-    this.queue.add(id);
-    this.drain();
-  }
-
-  private drain(): void {
-    while (!this.stopped && this.activeReads < 4 && this.queue.size) {
-      const id = this.queue.values().next().value as string;
-      this.queue.delete(id);
-      this.activeReads++;
-      void this.readEntry(id).finally(() => { this.activeReads--; this.drain(); });
+  private async migrateLegacy(): Promise<void> {
+    if (this.localData.notelineFiles !== undefined || this.localData.schemaVersion === undefined) return;
+    let legacy: PluginState;
+    try { legacy = validateState(this.localData); }
+    catch (error) { this.preferencesWritable = false; throw new Error(`Не удалось перенести старую ось. data.json сохранён: ${String(error)}`); }
+    let file: TFile | undefined;
+    const existing = this.app.vault.getAbstractFileByPath('Noteline.timeline');
+    if (existing instanceof TFile) {
+      try { if (serializeTimeline((await this.repository.load(existing)).state) === serializeTimeline(legacy)) file = existing; }
+      catch (error) { this.report(new Error(`Существующий Noteline.timeline сохранён без изменений: ${String(error)}`)); }
     }
+    if (!file) for (const candidate of this.repository.list().filter(item => /^Noteline \d+\.timeline$/.test(item.path))) {
+      try { if (serializeTimeline((await this.repository.load(candidate)).state) === serializeTimeline(legacy)) { file = candidate; break; } }
+      catch (error) { this.report(new Error(`Файл ${candidate.path} сохранён без изменений: ${String(error)}`)); }
+    }
+    if (!file) file = await this.repository.create(this.uniquePath('Noteline.timeline'), legacy);
+    this.localData.notelineFiles = { version: 1, migratedPath: file.path, lastPath: file.path };
+    // All legacy fields remain intact in data.json as a recovery copy.
+    await this.savePreferences();
+    new Notice(`Старая ось перенесена в ${file.path}. Исходные данные сохранены в data.json.`);
   }
 
-  private async readEntry(id: string): Promise<void> {
-    const entry = this.entry(id);
-    if (!entry) return;
-    const path = entry.filePath;
-    const generation = this.generations.get(id);
-    const file = this.app.vault.getAbstractFileByPath(path);
-    const record: NoteRecord = { entryId: id, path, title: file instanceof TFile ? file.basename : path, missingDate: false, pending: false };
-    try {
-      if (!(file instanceof TFile) || file.extension !== 'md') throw new Error('Файл не найден. Откройте его или выберите новый путь.');
-      const markdown = await this.app.vault.cachedRead(file);
-      if (this.stopped || this.generations.get(id) !== generation || this.entry(id)?.filePath !== path) return;
-      const cache = this.app.metadataCache.getFileCache(file);
-      const metadata = parseNote(markdown, this.store.state.settings.dateProperties, cache ? (cache.tags ?? []).map(item => item.tag) : undefined);
-      record.metadata = metadata;
-      if (metadata.date.kind === 'invalid') record.error = metadata.date.message;
-      else if (metadata.date.kind === 'valid') {
-        record.effectiveDate = metadata.date.date;
-        if (entry.fallbackDate && this.store.writable) this.store.change(() => { delete entry.fallbackDate; });
-      } else {
-        record.missingDate = true;
-        if (!entry.fallbackDate) {
-          if (!this.store.writable) throw new Error('Нет даты и невозможно сохранить дату подстановки: состояние доступно только для чтения.');
-          this.store.change(() => { entry.fallbackDate = calendarDateToday(new Date()); });
-        }
-        record.effectiveDate = parseCalendarDate(entry.fallbackDate ?? '') ?? undefined;
-      }
-    } catch (error) { record.error = error instanceof Error ? error.message : String(error); }
-    if (this.stopped || this.generations.get(id) !== generation || this.entry(id)?.filePath !== path) return;
-    this.records.set(id, record);
-    this.emit();
+  private get preferences(): Record<string, unknown> {
+    const value = this.localData.notelineFiles;
+    return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : { version: 1 };
   }
 
-  entry(id: string): TimelineEntry | undefined { return this.store.state.timeline.entries.find(entry => entry.entryId === id); }
-
-  async openTimeline(): Promise<void> {
-    try {
-      let leaf = this.app.workspace.getLeavesOfType(VIEW_TYPE)[0];
-      if (!leaf) {
-        leaf = this.app.workspace.getLeaf('tab');
-        await leaf.setViewState({ type: VIEW_TYPE, active: true });
-      }
-      await this.app.workspace.revealLeaf(leaf);
-      this.emit();
-    } catch (error) { this.report(error); }
+  private async savePreferences(): Promise<void> {
+    if (!this.preferencesWritable || this.stopped) return;
+    const snapshot = JSON.parse(JSON.stringify(this.localData)) as Record<string, unknown>;
+    this.preferenceWrite = this.preferenceWrite.then(() => this.saveData(snapshot));
+    try { await this.preferenceWrite; }
+    catch (error) { this.preferencesWritable = false; throw new Error(`Файл оси сохранён, но локальные настройки не записаны: ${String(error)}`); }
   }
 
-  chooseNote(): void { new NotePicker(this.app, file => this.addNote(file)).open(); }
-
-  async addNote(file: TFile): Promise<void> {
-    try {
-      if (!this.store.writable) throw new Error(this.store.error || 'Ось доступна только для чтения.');
-      let entry = this.store.state.timeline.entries.find(item => item.filePath === file.path);
-      if (!entry) {
-        const metadata = parseNote(await this.app.vault.cachedRead(file), this.store.state.settings.dateProperties);
-        if (this.stopped) return;
-        if (metadata.date.kind === 'invalid') throw new Error(metadata.date.message);
-        entry = this.store.state.timeline.entries.find(item => item.filePath === file.path);
-        if (!entry) {
-          const bytes = new Uint8Array(16);
-          globalThis.crypto.getRandomValues(bytes);
-          entry = { entryId: Array.from(bytes, value => value.toString(16).padStart(2, '0')).join(''), filePath: file.path, preferredLane: 0, expanded: false };
-          if (metadata.date.kind === 'missing') entry.fallbackDate = calendarDateToday(new Date());
-          const added = entry;
-          this.store.change(state => { state.timeline.entries.push(added); });
-        }
-      }
-      this.requestedFocus = entry.entryId;
-      this.refresh(entry.entryId);
-      await this.openTimeline();
-    } catch (error) { this.report(error); }
+  private remember(file: TFile): void {
+    this.localData.notelineFiles = { ...this.preferences, lastPath: file.path };
+    void this.savePreferences().catch(error => this.report(error));
   }
 
-  remove(id: string): void {
-    try {
-      this.store.change(state => { state.timeline.entries = state.timeline.entries.filter(entry => entry.entryId !== id); });
-      this.generations.set(id, (this.generations.get(id) ?? 0) + 1);
-      this.records.delete(id);
-      this.emit();
-    } catch (error) { this.report(error); }
+  listTimelines(): TFile[] { return this.repository.list(); }
+  uniquePath(path: string): string {
+    if (!this.app.vault.getAbstractFileByPath(path)) return path;
+    const stem = path.replace(/\.timeline$/, '');
+    let suffix = 2;
+    while (this.app.vault.getAbstractFileByPath(`${stem} ${suffix}.timeline`)) suffix++;
+    return `${stem} ${suffix}.timeline`;
   }
 
-  updateEntry(id: string, update: (entry: TimelineEntry) => void): void {
-    try { const entry = this.entry(id); if (entry) this.store.change(() => update(entry)); }
-    catch (error) { this.report(error); }
+  subscribeCollection(listener: () => void): () => void { this.collectionListeners.add(listener); return () => this.collectionListeners.delete(listener); }
+  private collectionChanged(): void { if (!this.stopped) for (const listener of this.collectionListeners) listener(); }
+
+  chooseTimeline(action: (file: TFile) => Promise<void> = file => this.openTimeline(file)): void {
+    if (!this.listTimelines().length) { this.createTimelineDialog(); return; }
+    new TimelinePicker(this.app, this.listTimelines(), file => action(file).catch(error => this.report(error))).open();
   }
 
-  async openNote(path: string): Promise<void> {
-    try { await this.app.workspace.openLinkText(path, '', 'tab'); }
-    catch (error) { this.report(error); }
-  }
-
-  relink(id: string): void {
-    new NotePicker(this.app, async file => {
-      const existing = this.store.state.timeline.entries.find(entry => entry.filePath === file.path && entry.entryId !== id);
-      if (existing) { new Notice('Эта заметка уже есть на оси.'); return; }
-      this.updateEntry(id, entry => { entry.filePath = file.path; delete entry.fallbackDate; });
-      this.refresh(id);
+  createTimelineDialog(copy?: TimelineSession, source?: TFile): void {
+    const initial = this.uniquePath(copy ? `${source?.basename ?? 'Ось'} копия.timeline` : 'Новая ось.timeline');
+    new ValueModal(this.app, copy ? 'Сохранить копию оси' : 'Создать временную ось', 'Путь внутри хранилища. Расширение .timeline добавляется автоматически.', initial, async value => {
+      const path = value.endsWith('.timeline') ? value : `${value}.timeline`;
+      const file = await this.repository.create(path, copy ? validateState(copy.store.state) : createDefaultState());
+      this.collectionChanged();
+      await this.openTimeline(file);
     }).open();
   }
 
-  tagDialog(id: string): void {
-    const entry = this.entry(id);
-    if (!entry) return;
-    const intendedPath = entry.filePath;
-    const tags = [...new Set([...this.records.values()].flatMap(record => record.metadata?.tags ?? []))].sort();
-    new ValueModal(this.app, 'Добавить тег', 'Тег будет записан в исходную заметку: строку 📍 Tags: или свойство tags. Существующие теги сохраняются.', '', async value => {
-      const tag = normalizeTag(value);
-      if (!tag) throw new Error('Введите один допустимый тег без пробелов, например идеи/аудио.');
-      const current = this.entry(id);
-      if (!current || current.filePath !== intendedPath || this.stopped) throw new Error('Карточка удалена или связана с другим файлом. Откройте форму заново.');
-      if (!this.store.writable) throw new Error(this.store.error || 'Состояние доступно только для чтения.');
-      const file = this.app.vault.getAbstractFileByPath(current.filePath);
-      if (!(file instanceof TFile)) throw new Error('Заметка не найдена.');
-      await addTag(this.app, file, this.store.state.settings.dateProperties, tag);
-      this.refresh(id);
-    }, tags).open();
+  async openTimeline(file?: TFile): Promise<void> {
+    try {
+      if (!file) {
+        const last = this.preferences.lastPath;
+        const remembered = typeof last === 'string' ? this.app.vault.getAbstractFileByPath(last) : null;
+        file = remembered instanceof TFile && remembered.extension === 'timeline' ? remembered : this.listTimelines()[0];
+      }
+      if (!file) { this.createTimelineDialog(); return; }
+      const target = file;
+      const existing = this.app.workspace.getLeavesOfType(VIEW_TYPE).find(leaf => leaf.view instanceof TimelineView && leaf.view.file?.path === target.path);
+      if (existing) await this.app.workspace.revealLeaf(existing);
+      else await this.app.workspace.getLeaf('tab').openFile(file);
+      this.remember(file);
+    } catch (error) { this.report(error); }
   }
 
-  async onExternalSettingsChange(): Promise<void> {
+  private findHandle(file: TFile): SessionHandle | undefined { return [...this.handles.values()].find(handle => handle.file === file || handle.file.path === file.path); }
+
+  async acquireSession(file: TFile): Promise<TimelineSession> {
+    if (this.stopped) throw new Error('Плагин выгружен.');
+    let handle = this.findHandle(file);
+    if (!handle) {
+      let loading = this.loading.get(file);
+      if (!loading) {
+        loading = this.loadHandle(file);
+        this.loading.set(file, loading);
+      }
+      try { handle = await loading; } finally { this.loading.delete(file); }
+    }
+    if (this.stopped) { handle.session.dispose(); this.handles.delete(handle.file); throw new Error('Плагин выгружен во время открытия оси.'); }
+    handle.references++;
+    return handle.session;
+  }
+
+  private async loadHandle(file: TFile): Promise<SessionHandle> {
+    const handle = { file, expectedText: '', pendingText: null, references: 0, reload: Promise.resolve() } as SessionHandle;
+    const store = new StateStore(async state => {
+      handle.pendingText = serializeTimeline(state);
+      try { handle.expectedText = await this.repository.save(file, state, handle.expectedText); }
+      finally { handle.pendingText = null; }
+    }, () => handle.session?.notify());
+    handle.session = new TimelineSession(this.app, store, () => this.openTimeline(file));
     try {
-      await this.store.external(await this.loadData());
-      this.externalRevision++;
-      this.refreshAll();
-    } catch (error) { this.store.status = 'readonly'; this.store.error = `Не удалось перечитать внешние настройки: ${String(error)}`; this.emit(); }
+      handle.expectedText = await this.app.vault.read(file);
+      store.load(parseTimeline(handle.expectedText));
+    } catch (error) {
+      store.load({ schemaVersion: -1 });
+      store.error = `Не удалось открыть ${file.path}. Файл не изменён: ${String(error)}`;
+    }
+    if (this.stopped) { handle.session.dispose(); throw new Error('Плагин выгружен во время чтения оси.'); }
+    this.handles.set(file, handle);
+    this.app.workspace.onLayoutReady(() => { if (!this.stopped && this.handles.get(file) === handle) handle.session.refreshAll(); });
+    return handle;
+  }
+
+  async releaseSession(session: TimelineSession): Promise<void> {
+    const handle = [...this.handles.values()].find(item => item.session === session);
+    if (!handle) return;
+    handle.references = Math.max(0, handle.references - 1);
+    await session.store.flush();
+    if (handle.references === 0 && session.store.status === 'saved') {
+      session.dispose();
+      this.handles.delete(handle.file);
+    }
+  }
+
+  private queueReload(handle: SessionHandle): void {
+    handle.reload = handle.reload.then(async () => {
+      const text = await this.app.vault.read(handle.file);
+      if (this.stopped || text === handle.expectedText || text === handle.pendingText) return;
+      await handle.session.store.external(parseTimeline(text));
+      if (handle.session.store.status === 'saved') handle.expectedText = text;
+      handle.session.externalRevision++;
+      handle.session.refreshAll();
+    }).catch(error => {
+      handle.session.store.status = 'readonly';
+      handle.session.store.error = `Внешний файл не прочитан; исходные данные не перезаписаны: ${String(error)}`;
+      handle.session.notify();
+    });
+  }
+
+  confirmReload(file: TFile, session: TimelineSession): void {
+    new ConfirmationModal(this.app, 'Перечитать ось из файла?', 'Несохранённое расположение будет заменено содержимым файла. Перед этим можно сохранить копию оси.', async () => {
+      const handle = this.findHandle(file);
+      if (!handle) throw new Error('Ось уже закрыта.');
+      await handle.reload;
+      await session.store.flush();
+      const loaded = await this.repository.load(file);
+      handle.expectedText = loaded.text;
+      session.store.load(loaded.state);
+      session.externalRevision++;
+      session.refreshAll();
+    }).open();
+  }
+
+  confirmDelete(file: TFile): void {
+    new ConfirmationModal(this.app, 'Удалить временную ось?', `${file.path} будет перемещён в корзину Obsidian или системы. Исходные заметки останутся на месте.`, async () => {
+      const handle = this.findHandle(file);
+      if (handle) {
+        await handle.session.store.flush();
+        if (handle.session.store.hasUnsavedChanges) throw new Error('Сначала сохраните копию несохранённой оси или разрешите конфликт.');
+      }
+      await this.app.fileManager.trashFile(file);
+      this.collectionChanged();
+    }).open();
+  }
+
+  private refreshPath(path: string): void { for (const handle of this.handles.values()) handle.session.refreshPath(path); }
+
+  private async renameReferences(file: TFile | TFolder, oldPath: string, newPath = file.path): Promise<void> {
+    if (this.stopped) return;
+    for (const handle of this.handles.values()) handle.session.rename(file, oldPath, newPath);
+    // Closed timelines also retain links when a note/folder is renamed while the plugin runs.
+    for (const timeline of this.listTimelines()) {
+      if (this.findHandle(timeline)) continue;
+      try {
+      const loaded = await this.repository.load(timeline);
+      if (this.stopped) return;
+      let changed = false;
+      for (const entry of loaded.state.timeline.entries) {
+        if (entry.filePath === oldPath || (file instanceof TFolder && entry.filePath.startsWith(`${oldPath}/`))) {
+          entry.filePath = newPath + entry.filePath.slice(oldPath.length);
+          changed = true;
+        }
+      }
+      if (changed) await this.repository.save(timeline, loaded.state, loaded.text);
+      } catch (error) { this.report(new Error(`Не удалось обновить ссылки в ${timeline.path}: ${String(error)}`)); }
+    }
+    const last = this.preferences.lastPath;
+    if (typeof last === 'string' && (last === oldPath || (file instanceof TFolder && last.startsWith(`${oldPath}/`)))) {
+      this.localData.notelineFiles = { ...this.preferences, lastPath: newPath + last.slice(oldPath.length) };
+      await this.savePreferences();
+    }
+    this.collectionChanged();
   }
 
   report(error: unknown): void { new Notice(error instanceof Error ? error.message : String(error)); }
-
   onunload(): void {
     for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE)) if (leaf.view instanceof TimelineView) leaf.view.flushCamera();
     this.stopped = true;
-    this.queue.clear();
-    this.store.dispose();
-    this.listeners.clear();
-    this.records.clear();
+    for (const handle of this.handles.values()) handle.session.dispose();
+    this.handles.clear();
+    this.collectionListeners.clear();
   }
 }
 
@@ -244,20 +307,8 @@ class NotelineSettings extends PluginSettingTab {
   constructor(app: App, plugin: NotelinePlugin) { super(app, plugin); this.plugin = plugin; }
   display(): void {
     this.containerEl.empty();
-    this.containerEl.addClass('noteline-settings');
-    let value = this.plugin.store.state.settings.dateProperties.join(', ');
-    new Setting(this.containerEl).setName('Свойства даты').setDesc('Имена через запятую в порядке приоритета. Если свойства пусты, читается начальная строка 📅.').addText(text => text.setValue(value).onChange(next => { value = next; }));
-    new Setting(this.containerEl).addButton(button => button.setButtonText('Применить').setCta().onClick(() => {
-      const names = value.split(',').map(name => name.trim()).filter(Boolean);
-      if (new Set(names).size !== names.length) { new Notice('Имена свойств не должны повторяться.'); return; }
-      try {
-        this.plugin.store.change(state => { state.settings.dateProperties = names; });
-        this.plugin.refreshAll();
-        new Notice('Свойства даты обновлены.');
-      } catch (error) { this.plugin.report(error); }
-    }));
-    new Setting(this.containerEl).setName('Отсутствующие метаданные').setDesc('Без даты используется сохраненная дата добавления. Без даты или тегов карточка имеет серую рамку. Исходная заметка автоматически не меняется.');
-    new Setting(this.containerEl).setName('Открыть временную ось').addButton(button => button.setButtonText('Открыть').onClick(() => { void this.plugin.openTimeline(); }));
-    new Setting(this.containerEl).setName('Повторить сохранение').setDesc(this.plugin.store.error || 'Настройки и раскладка сохраняются отдельно от заметок.').addButton(button => button.setButtonText('Повторить').onClick(() => { void this.plugin.store.flush(); }));
+    new Setting(this.containerEl).setName('Временные оси').setDesc('Каждая ось — отдельный .timeline-файл в хранилище. Настройки дат, ориентация, направление и раскладка сохраняются внутри него.').addButton(button => button.setButtonText('Открыть').onClick(() => this.plugin.chooseTimeline())).addButton(button => button.setButtonText('Создать').onClick(() => this.plugin.createTimelineDialog()));
+    new Setting(this.containerEl).setName('Синхронизация').setDesc('Синхронизируйте .timeline вместе с заметками. В Obsidian Sync включите синхронизацию остальных типов файлов на каждом устройстве. Одновременные изменения автоматически не объединяются.');
+    new Setting(this.containerEl).setName('Отсутствующие метаданные').setDesc('Без даты сохраняется дата добавления. Отсутствующие дата или теги обозначаются серой рамкой; исходная заметка автоматически не меняется.');
   }
 }

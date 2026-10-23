@@ -4,7 +4,7 @@
 
 ## Build from source
 
-Use Node.js 24+ and npm. Clone the repository and run from its root:
+Use Node.js 24+ and npm for 0.3.0. Clone the repository and run from its root:
 
 ```sh
 npm ci
@@ -14,19 +14,26 @@ npm run build
 
 `check` validates manifests, runs ESLint, checks TypeScript without emitting files, and runs automated tests. `build` produces a minified CommonJS `main.js`, targeting ES2020 with Obsidian external. `npm run dev` runs an esbuild watcher for development. Neither `main.js` nor `node_modules` belongs in a source commit.
 
+`npm test` runs Node's native test runner over `tests/*.test.mjs`; those tests import erasable TypeScript directly. Controlled Obsidian adapters test service behavior without launching the app. They do not substitute for its real editor, renderer, sync provider, or filesystem lifecycle.
+
 Install `main.js`, `manifest.json`, and `styles.css` in a test vault's `plugins/noteline/` folder. [Installation](installation.md). Test real Obsidian separately: unit tests do not prove native rendering or physical-device compatibility.
 
 ## Source layout
 
 | Path | Responsibility |
 | --- | --- |
-| `src/main.ts` | Plugin lifecycle, vault integration, commands, and settings |
+| `src/main.ts` | File-extension registration, timeline session ownership, migration, vault events, and commands |
 | `src/domain/` | Calendar metadata, timeline geometry, and persisted-state validation |
-| `src/services/` | Note writes and serialized persistence |
-| `src/ui/` | Timeline view, dialogs, and rendered cards |
+| `src/services/timeline-session.ts` | Per-file note controller, metadata reads, fallback dates, and stale-request protection |
+| `src/services/timeline-files.ts` | `.timeline` JSON loading, validation, creation, and compare-before-save protection |
+| `src/services/persistence.ts` | Serialized snapshots, retry, and external-change conflicts |
+| `src/services/notes.ts` | Current-buffer or transaction-based explicit tag writes |
+| `src/ui/` | `EditableFileView` for `.timeline`, file dialogs, orientation/direction, and rendered cards |
 | `tests/` | Domain and service regression checks |
 | `scripts/validate-manifest.mjs` | Metadata agreement and desktop-import checks |
 | `styles.css` | Scoped UI styles using Obsidian variables |
+
+The runtime uses [public Obsidian API declarations](https://github.com/obsidianmd/obsidian-api/blob/master/obsidian.d.ts), including `EditableFileView`, `registerExtensions`, `Vault.process`, `FileManager.processFrontMatter`, and `MarkdownRenderer.render`. No Node/Electron filesystem API is needed. The [timeline-file contract](timeline-files.md) documents schema `1`; plugin `data.json` stores navigation/migration information rather than the active timeline document.
 
 ## Manifest and release contract
 
@@ -36,7 +43,7 @@ The root [`manifest.json`](../../manifest.json) describes the plugin. Keep these
 | --- | --- |
 | `id` | `noteline`; also the installation folder name |
 | `name` | `Noteline` |
-| `version` | `0.2.0`; plain `x.y.z`, matching the release tag |
+| `version` | `0.3.0`; plain `x.y.z`, matching the release tag |
 | `minAppVersion` | `1.7.2`; the minimum declared Obsidian version |
 | `isDesktopOnly` | `false`; mobile installation is enabled, physical-device testing is pending |
 | `author`, `authorUrl` | Maintainer identity and profile |
@@ -44,12 +51,16 @@ The root [`manifest.json`](../../manifest.json) describes the plugin. Keep these
 
 `package.json` and `package-lock.json` must use the same plugin version. [`versions.json`](../../versions.json) maps each published plugin version to its minimum supported Obsidian version.
 
-For a release, run checks and the production build from the intended commit. Publish a **GitHub Release**, with a tag exactly equal to `manifest.version`: **`0.2.0`, without `v`**. Attach `main.js`, `manifest.json`, and `styles.css` individually with those exact filenames. A tag alone, a draft release, or a source-code archive does not provide the installable assets. Verify the downloaded files against the prepared ones.
+Prepare the checked production build from the intended commit. For 0.3.0, the published release tag must be **`0.3.0`, without `v`**. Attach `main.js`, `manifest.json`, and `styles.css` individually and verify downloads. A source archive or draft release is insufficient.
 
-The error **No release matches your manifest version** means the Community service cannot find the published release for the manifest on the default branch. Check its exact tag, publication state, and attached files before changing a correct manifest. For later code updates, increment the version and publish a matching new release; replacing an already distributed version can leave users with different binaries under one version number.
+If Community reports **No release matches your manifest version**, check the default-branch manifest, exact published tag, and assets before changing correct metadata. Increment the version for later code updates.
 
 ## Community submission
 
-Follow Obsidian's current [Submit your plugin](https://docs.obsidian.md/Plugins/Releasing/Submit%20your%20plugin) guide. The default branch needs an accurate manifest, README, and license; a matching published release is required before the directory can distribute the plugin. Submission and acceptance are separate from publishing a GitHub release. This repository does not claim Community approval.
+Follow [Obsidian's submission guide](https://docs.obsidian.md/Plugins/Releasing/Submit%20your%20plugin): provide an accurate manifest, README, license, and matching published release. Community acceptance is separate; this repository does not claim approval.
 
-Before publishing, verify metadata fallbacks and gray frames, explicit tag writes, backup/reload, missing-note relinking, and the claimed platforms in a test vault. Do not mark physical mobile compatibility as verified without device checks.
+Before publishing another build, repeat checks for independent files/tabs, both orientations and directions, BCE/partial dates, gray frames, tag writes, migration, backup/copy/reload, stale writes, and relinking in a test vault.
+
+The 0.3.0 native macOS smoke run on Obsidian 1.14.4 passed activation; legacy migration of three entries with expanded state and fallback dates; two independent timeline files; create/copy/add/delete with the source note retained; both orientations and reversed directions; fit; month/year/Roman-century/BCE-year/BCE-century precision; persistence after app reload; and clean external updates to orientation, direction, and expanded states.
+
+Physical iOS/Android, Windows/Linux, Obsidian 1.7.2 itself, touch gestures, and actual sync transport/provider conflicts remain unverified. Local file-update checks do not establish provider synchronization behavior.

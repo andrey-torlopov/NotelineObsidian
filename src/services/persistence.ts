@@ -9,6 +9,7 @@ export class StateStore {
   error = '';
   private revision = 0;
   private savedRevision = 0;
+  private epoch = 0;
   private running: Promise<void> | null = null;
   private disposed = false;
   private notify: () => void;
@@ -20,8 +21,11 @@ export class StateStore {
   }
 
   load(raw: unknown): void {
+    this.epoch++;
     try {
       this.state = validateState(raw);
+      this.revision = 0;
+      this.savedRevision = 0;
       this.status = 'saved';
       this.error = '';
     } catch (error) {
@@ -34,6 +38,8 @@ export class StateStore {
   get writable(): boolean {
     return !this.disposed && this.canPersist;
   }
+
+  get hasUnsavedChanges(): boolean { return this.revision !== this.savedRevision; }
 
   private get canPersist(): boolean { return this.status !== 'readonly' && this.status !== 'conflict'; }
 
@@ -59,12 +65,15 @@ export class StateStore {
   private async pump(): Promise<void> {
     while (this.canPersist && this.savedRevision !== this.revision) {
       const revision = this.revision;
+      const epoch = this.epoch;
       const snapshot = JSON.parse(JSON.stringify(this.state)) as PluginState;
       try {
         await this.write(snapshot);
+        if (epoch !== this.epoch) continue;
         this.savedRevision = revision;
       } catch (error) {
-        this.status = 'error';
+        if (epoch !== this.epoch) continue;
+        this.status = error instanceof Error && error.name === 'TimelineConflictError' ? 'conflict' : 'error';
         this.error = error instanceof Error ? error.message : String(error);
         this.notify();
         return;

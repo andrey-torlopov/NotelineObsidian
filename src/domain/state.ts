@@ -14,7 +14,9 @@ export interface PluginState {
   settings: { dateProperties: string[]; [key: string]: unknown };
   timeline: {
     entries: TimelineEntry[];
-    viewport?: { start: number; end: number; scrollTop: number; [key: string]: unknown };
+    orientation?: 'horizontal' | 'vertical';
+    reverse?: boolean;
+    viewport?: { start: number; end: number; scrollTop: number; scrollLeft?: number; [key: string]: unknown };
     [key: string]: unknown;
   };
   [key: string]: unknown;
@@ -66,6 +68,8 @@ export function validateState(raw: unknown): PluginState {
     throw new StateValidationError("Повреждено состояние Noteline: свойства даты повторяются.");
   }
   const timeline = record(source.timeline, "timeline");
+  if (timeline.orientation !== undefined && timeline.orientation !== 'horizontal' && timeline.orientation !== 'vertical') throw new StateValidationError('Неподдерживаемая ориентация временной оси.');
+  if (timeline.reverse !== undefined && typeof timeline.reverse !== 'boolean') throw new StateValidationError('Неверное направление временной оси.');
   if (!Array.isArray(timeline.entries)) throw new StateValidationError("Повреждено состояние Noteline: entries должен быть массивом.");
   const ids = new Set<string>();
   const paths = new Set<string>();
@@ -86,7 +90,8 @@ export function validateState(raw: unknown): PluginState {
     const value = record(timeline.viewport, "viewport");
     if (typeof value.start !== "number" || !Number.isFinite(value.start) || value.start < MIN_COORDINATE ||
       typeof value.end !== "number" || !Number.isFinite(value.end) || value.end > MAX_COORDINATE || value.end - value.start < MIN_SPAN ||
-      typeof value.scrollTop !== "number" || !Number.isFinite(value.scrollTop) || value.scrollTop < 0) {
+      typeof value.scrollTop !== "number" || !Number.isFinite(value.scrollTop) || value.scrollTop < 0 ||
+      (value.scrollLeft !== undefined && (typeof value.scrollLeft !== 'number' || !Number.isFinite(value.scrollLeft) || value.scrollLeft < 0))) {
       throw new StateValidationError("Повреждено состояние Noteline: неверная область просмотра.");
     }
     viewport = { ...value } as PluginState["timeline"]["viewport"];

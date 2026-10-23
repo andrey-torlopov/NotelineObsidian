@@ -3,8 +3,14 @@ import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import {
   analyzeNote,
+  calendarCoordinate,
   calendarDateToday,
   extractFrontmatter,
+  formatCalendarCentury,
+  formatCalendarDate,
+  formatCalendarYear,
+  MAX_SUPPORTED_COORDINATE,
+  MIN_SUPPORTED_COORDINATE,
   normalizeTag,
   parseCalendarDate,
   planTagAddition,
@@ -42,9 +48,92 @@ test('calendar rejects impossible, ambiguous and unsupported absolute dates', ()
   ]) assert.equal(parseCalendarDate(value), null, value);
 });
 
+test('partial dates retain month and year precision without displaying invented days', () => {
+  for (const input of ['0001-01', '0099-12', '2026-10', '9999-12']) {
+    const date = parseCalendarDate(input);
+    assert.equal(date.precision, 'month');
+    assert.equal(date.value, input);
+    assert.equal(new Date(date.coordinate).getUTCDate(), 1);
+    assert.equal(formatCalendarDate(date), input);
+  }
+  for (const input of [1, 44, 9999, '1', '0044', '9999']) {
+    const date = parseCalendarDate(input);
+    assert.equal(date.precision, 'year');
+    assert.equal(date.value, String(Number(input)).padStart(4, '0'));
+    assert.equal(formatCalendarDate(date), String(Number(input)));
+  }
+});
+
+test('each canonical Roman century I through C maps to its historical beginning', () => {
+  const centuries = `I II III IV V VI VII VIII IX X XI XII XIII XIV XV XVI XVII XVIII XIX XX
+    XXI XXII XXIII XXIV XXV XXVI XXVII XXVIII XXIX XXX XXXI XXXII XXXIII XXXIV XXXV XXXVI XXXVII XXXVIII XXXIX XL
+    XLI XLII XLIII XLIV XLV XLVI XLVII XLVIII XLIX L LI LII LIII LIV LV LVI LVII LVIII LIX LX
+    LXI LXII LXIII LXIV LXV LXVI LXVII LXVIII LXIX LXX LXXI LXXII LXXIII LXXIV LXXV LXXVI LXXVII LXXVIII LXXIX LXXX
+    LXXXI LXXXII LXXXIII LXXXIV LXXXV LXXXVI LXXXVII LXXXVIII LXXXIX XC XCI XCII XCIII XCIV XCV XCVI XCVII XCVIII XCIX C`.trim().split(/\s+/);
+  assert.equal(centuries.length, 100);
+  centuries.forEach((roman, index) => {
+    const century = index + 1;
+    const ce = parseCalendarDate(roman);
+    assert.equal(ce.precision, 'century');
+    assert.equal(ce.coordinate, calendarCoordinate(index * 100 + 1));
+    assert.equal(ce.value, roman);
+    assert.equal(formatCalendarDate(ce), `${roman} век`);
+    const bc = parseCalendarDate(`${roman} BC`);
+    assert.equal(bc.coordinate, calendarCoordinate(1 - century * 100));
+    assert.equal(formatCalendarDate(bc), `${roman} век до н. э.`);
+  });
+});
+
+test('BCE years normalize aliases, cross 1 BC to 1 CE without an external year zero', () => {
+  for (const era of ['BC', 'BCE', 'bc', 'bce', 'д.н.э.', 'д. н. э.', 'до н.э.', 'до н. э.']) {
+    const date = parseCalendarDate(`44 ${era}`);
+    assert.deepEqual(date, { value: '0044 BC', coordinate: calendarCoordinate(-43), precision: 'year' });
+    assert.equal(formatCalendarDate(date), '44 до н. э.');
+    assert.equal(formatCalendarDate(date, 'en'), '44 BC');
+  }
+  assert.equal(parseCalendarDate('1 BC').coordinate, calendarCoordinate(0));
+  assert.equal(parseCalendarDate('2 BC').coordinate, calendarCoordinate(-1));
+  assert.equal(parseCalendarDate('1').coordinate, calendarCoordinate(1));
+  const ordered = ['II BC', 'I BC', '2 BC', '1 BC', '1', 'I', '2', 'II'];
+  for (let index = 1; index < ordered.length; index += 1) {
+    assert.ok(parseCalendarDate(ordered[index - 1]).coordinate <= parseCalendarDate(ordered[index]).coordinate);
+  }
+  assert.equal(formatCalendarYear(0), '1 до н. э.');
+  assert.equal(formatCalendarYear(1), '1');
+  assert.equal(formatCalendarCentury(0), 'I век до н. э.');
+  assert.equal(formatCalendarCentury(-99), 'I век до н. э.');
+  assert.equal(formatCalendarCentury(-100), 'II век до н. э.');
+  assert.equal(formatCalendarCentury(1801, 'en'), 'XIX century');
+});
+
+test('calendar support bounds include full C centuries on both sides of the era boundary', () => {
+  assert.equal(parseCalendarDate('C BC').coordinate, MIN_SUPPORTED_COORDINATE);
+  assert.equal(new Date(MIN_SUPPORTED_COORDINATE).getUTCFullYear(), -9999);
+  assert.equal(MAX_SUPPORTED_COORDINATE, calendarCoordinate(10001) - 1);
+  const last = new Date(MAX_SUPPORTED_COORDINATE);
+  assert.equal(last.getUTCFullYear(), 10000);
+  assert.equal(last.getUTCMonth(), 11);
+  assert.equal(last.getUTCDate(), 31);
+  assert.equal(formatCalendarCentury(last.getUTCFullYear()), 'C век');
+  assert.equal(formatCalendarDate({ value: '', coordinate: MIN_SUPPORTED_COORDINATE, precision: 'century' }), 'C век до н. э.');
+  assert.throws(() => formatCalendarDate({ value: '', coordinate: MIN_SUPPORTED_COORDINATE - 1, precision: 'year' }), /координата/);
+  assert.throws(() => formatCalendarYear(10001), /диапазона/);
+});
+
+test('partial dates reject noncanonical Roman, zero, unsupported suffixes and ambiguous syntax', () => {
+  for (const input of [
+    0, -1, 1.5, Number.NaN, Number.POSITIVE_INFINITY, 10000,
+    '0', '0000', '0 BC', '0000 BCE', '10000', '10000 BC', '-44', '-44 BC',
+    'IIII', 'IIV', 'VX', 'IC', 'IIX', 'XXXX', 'LXXXX', 'CI', 'D', 'M', 'xix',
+    '2026-00', '2026-13', '2026-1', '1-01', '0000-01', '2026-10 BC',
+    '2026-10-22 BC', '2026-10-22 12:00 BC', '2026 CE', 'XIX AD', 'XIX век',
+    '44 до нашей эры', '44BC', '44 BC extra', '44\nBC', ' 44 BC', '44 BC ',
+  ]) assert.equal(parseCalendarDate(input), null, String(input));
+});
+
 test('calendar coordinates are identical across UTC, Moscow and DST zones', () => {
   const moduleUrl = new URL('../src/domain/metadata.ts', import.meta.url).href;
-  const script = `import {parseCalendarDate} from ${JSON.stringify(moduleUrl)}; console.log(JSON.stringify(['0001-01-01','0099-12-31','2026-03-08 02:30','2026-11-01 01:30'].map(value=>parseCalendarDate(value))));`;
+  const script = `import {parseCalendarDate,formatCalendarDate} from ${JSON.stringify(moduleUrl)}; console.log(JSON.stringify(['0001-01-01','0099-12-31','2026-03-08 02:30','2026-11-01 01:30','2026-10','44 BC','1 BCE','II BC','C','C BC',2026].map(value=>{const date=parseCalendarDate(value);return [date,formatCalendarDate(date)];})));`;
   const values = ['UTC', 'Europe/Moscow', 'America/New_York'].map((TZ) => {
     const result = spawnSync(process.execPath, ['--input-type=module', '-e', script], { env: { ...process.env, TZ }, encoding: 'utf8' });
     assert.equal(result.status, 0, result.stderr);
@@ -103,13 +192,32 @@ test('date source priority reports lower source conflicts without silent fallbac
   assert.match(invalid.date.message, /timeline-date/);
 });
 
-test('empty properties are skipped, non-string properties are rejected', () => {
+test('empty properties are skipped, unsupported property types are rejected', () => {
   const value = analyze('📅 2026-10-22', { frontmatter: { 'timeline-date': '  ', date: null } });
   assert.equal(value.date.source, 'marker');
-  for (const invalid of [123, true, [], {}, new Date()]) {
+  for (const invalid of [0, -44, 1.5, true, [], {}, new Date()]) {
     assert.equal(analyze('📅 2026-10-22', { frontmatter: { 'timeline-date': invalid } }).date.kind, 'invalid');
   }
   assert.equal(analyze('Body', { frontmatter: { 'timeline-date': '', date: '2026-10-22T12:00:00' } }).date.source, 'property:date');
+});
+
+test('integer YAML years and partial marker dates use the normal source priority', () => {
+  const numeric = analyze('📅 1900\nBody', { frontmatter: { date: 1900 } });
+  assert.equal(numeric.date.kind, 'valid');
+  assert.equal(numeric.date.date.precision, 'year');
+  assert.equal(numeric.date.source, 'property:date');
+  assert.deepEqual(numeric.date.warnings, []);
+  for (const input of ['2026-10', '2026', '1', 'XIX', '44 BC', 'II BCE', '44 д.н.э.', 'II до н. э.']) {
+    const value = analyze(`📅 ${input}\n📍 Tags: #one\nBody`);
+    assert.equal(value.date.kind, 'valid', input);
+    assert.deepEqual(value.date.date, parseCalendarDate(input));
+    assert.equal(value.body, 'Body');
+    assert.equal(value.missingTags, false);
+  }
+  const invalid = analyze('📅 2026', { frontmatter: { 'timeline-date': 0, date: 2026 } });
+  assert.equal(invalid.date.kind, 'invalid');
+  const precise = analyze('📅 1900-01-01', { frontmatter: { date: 1900 } });
+  assert.equal(precise.date.warnings.length, 1, 'Different source precision remains visible even at the same period start');
 });
 
 test('same source value has no conflict; invalid lower source produces a warning', () => {

@@ -4,7 +4,7 @@
 
 ## Requirements
 
-Obsidian 1.7.2 or newer and a vault with Markdown notes. A built plugin needs no server, account, or Node.js. Desktop smoke checks were performed on macOS with Obsidian 1.14.4. The manifest enables mobile installation, but physical iOS/Android and the minimum Obsidian version are not yet verified.
+Noteline 0.3.0 declares Obsidian 1.7.2 or newer and uses existing vault Markdown notes. A built plugin needs no server, account, or Node.js. Native macOS smoke checks passed with Obsidian 1.14.4. The manifest enables mobile installation; physical iOS/Android, Windows/Linux, Obsidian 1.7.2 itself, touch gestures, and actual sync transport/provider conflicts remain unverified.
 
 ## Get a built copy
 
@@ -27,14 +27,20 @@ If there is no release yet, use the [source-build instructions](development.md) 
 ```
 
 3. Reload Obsidian if necessary and enable Noteline under **Settings → Community plugins**. Only enable code you trust.
-4. Run **Noteline: Открыть временную ось** in the command palette.
+4. Run **Noteline: Открыть временную ось** in the command palette. Create a `.timeline` file when prompted, or select an existing one. Different files open as independent timeline tabs.
 
-The folder name must match `manifest.id`: `noteline`. Avoid a second nested `noteline` folder. Do not copy `node_modules` or the entire repository into the plugin folder. On mobile, transfer the built files to the configuration folder of the same vault before enabling the plugin.
+The folder name must match `manifest.id`: `noteline`. Avoid a second nested `noteline` folder. Do not copy `node_modules` or the entire repository into the plugin folder. On mobile, transfer the built files to the configuration folder of the same vault before enabling the plugin. Timeline documents belong in the vault, not the plugin's installation folder.
 
 ## Updates
 
-Back up the vault and `plugins/noteline/data.json`. Disable Noteline, replace `main.js`, `manifest.json`, and `styles.css` together, preserve `data.json`, and enable it again. Use matching files from one version.
+Back up the vault, including `.timeline` files and `plugins/noteline/data.json`. Disable Noteline, replace `main.js`, `manifest.json`, and `styles.css` together, preserve `data.json`, and enable it again. Use matching files from one version.
 
-Do not delete `data.json` during a normal update: it contains membership, fallback dates, and layout. A damaged or unsupported schema is reported rather than silently reset. [Backup and restore](data-and-security.md).
+When upgrading from a single-timeline version, valid legacy `data.json` state is transferred to `Noteline.timeline`, or another available name if needed. The legacy fields remain for recovery and `notelineFiles` records the migrated and last-opened paths. In 0.3.0, each `.timeline` file holds its own membership, fallback dates, settings, and layout; `data.json` is no longer the source for these shared documents.
 
-Deleting saved plugin data discards the timeline, not the notes. Adding an undated note after that reset can give it a new fallback date.
+Do not delete `data.json` during an update: doing so can destroy pre-migration data or its retained recovery copy. A damaged or unsupported timeline file is reported rather than silently reset. [Migration, backup, and restore](data-and-security.md).
+
+## Desktop and mobile using the same vault
+
+Install a compatible built version on each device, then synchronize `.timeline` files together with their notes and attachments. Make sure custom file types are included in your sync setup; copying or syncing only the plugin does not transfer the timelines. Keep the same note paths relative to the vault.
+
+If notes arrive on iOS but a timeline does not, check the actual `.timeline` file and the sync configuration on that device before creating another copy. Let synchronization finish before editing the same timeline on another device. [Obsidian Sync setup and conflict recovery](data-and-security.md#multiple-devices).

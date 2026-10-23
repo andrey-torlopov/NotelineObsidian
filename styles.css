@@ -28,6 +28,8 @@
 }
 .noteline .noteline-brand { display: flex; flex-direction: column; margin-right: auto; font-weight: 650; letter-spacing: .015em; }
 .noteline .noteline-subtitle { color: var(--text-muted); font-size: var(--font-smallest); font-weight: 400; letter-spacing: 0; }
+.noteline .noteline-file-select { max-width: 220px; font-size: var(--font-smallest); }
+.noteline .noteline-stage { display: flex; flex-direction: column; flex: 1; min-width: 0; min-height: 0; overflow: hidden; }
 .noteline .noteline-add { margin-right: 6px; }
 .noteline .noteline-icon-button { display: inline-flex; align-items: center; justify-content: center; min-width: 30px; min-height: 30px; padding: 5px; box-shadow: none; }
 .noteline .noteline-icon-button svg { width: 16px; height: 16px; stroke-width: 1.5px; }
@@ -43,7 +45,7 @@
   background-image: radial-gradient(var(--noteline-grid) .7px, transparent .7px);
   background-size: 28px 28px;
 }
-.noteline .noteline-scene { position: relative; height: var(--noteline-scene-height, 100%); min-height: 100%; }
+.noteline .noteline-scene { position: relative; height: var(--noteline-scene-height, 100%); width: var(--noteline-scene-width, 100%); min-height: 100%; }
 .noteline .noteline-connectors { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
 .noteline .noteline-connectors line { stroke: var(--interactive-accent); stroke-width: 1px; opacity: .4; }
 .noteline .noteline-connectors line.is-incomplete { stroke: var(--noteline-defect); stroke-dasharray: 4 6; opacity: .6; }
@@ -72,7 +74,7 @@
 .noteline .noteline-card.is-incomplete { --noteline-card-accent: var(--noteline-defect); border-color: var(--noteline-defect); }
 .noteline .noteline-card:focus-within { outline: 2px solid var(--interactive-accent); outline-offset: 3px; z-index: 2; }
 .noteline .noteline-card.is-dragging { z-index: 4; opacity: .85; outline: 2px dashed var(--interactive-accent); outline-offset: 4px; }
-.noteline .noteline-card-controls { display: flex; justify-content: flex-end; gap: 2px; margin-bottom: 6px; }
+.noteline .noteline-card-controls { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 2px; margin-bottom: 6px; }
 .noteline .noteline-card-controls .noteline-icon-button { min-width: 28px; min-height: 28px; background: transparent; color: var(--text-muted); }
 .noteline .noteline-card-controls .noteline-drag-handle { margin-right: auto; cursor: ns-resize; touch-action: none; }
 .noteline .noteline-card-title { display: block; width: 100%; height: auto; text-align: left; white-space: normal; font-weight: 650; font-size: var(--font-ui-large); color: var(--text-normal); background: transparent; box-shadow: none; padding: 0; line-height: 1.4; }
@@ -98,6 +100,18 @@
 .noteline .noteline-tick { position: absolute; left: var(--noteline-tick-x); top: 27px; transform: translateX(-50%); color: var(--text-muted); font-size: var(--font-smallest); white-space: nowrap; letter-spacing: .035em; }
 .noteline .noteline-tick::before { content: ''; position: absolute; width: 1px; height: 7px; background: var(--text-faint); opacity: .35; top: -18px; left: 50%; }
 .noteline .noteline-today { position: absolute; left: var(--noteline-tick-x); bottom: 3px; transform: translateX(-50%); font-size: var(--font-smallest); color: var(--text-accent); white-space: nowrap; }
+.noteline.is-vertical .noteline-stage { flex-direction: row; }
+.noteline.is-vertical .noteline-scroll { order: 1; min-width: 0; overflow-x: auto; overflow-y: hidden; }
+.noteline.is-vertical .noteline-axis { order: 0; flex: 0 0 140px; }
+.noteline.is-vertical .noteline-axis::before { top: 0; bottom: 0; left: calc(100% - var(--noteline-axis-offset)); right: auto; width: 1px; height: auto; background: linear-gradient(180deg, transparent, var(--interactive-accent) 16%, var(--interactive-accent) 84%, transparent); }
+.noteline.is-vertical .noteline-axis-point { left: calc(100% - var(--noteline-axis-offset)); top: var(--noteline-point-x); }
+.noteline.is-vertical .noteline-axis-point::after { bottom: auto; top: calc(50% - .5px); left: calc(100% + 1.5px); width: calc(var(--noteline-axis-offset) - 8px); height: 1px; }
+.noteline.is-vertical .noteline-axis-point.is-incomplete::after { background: repeating-linear-gradient(to right, var(--noteline-defect) 0 2px, transparent 2px 4px); }
+.noteline.is-vertical .noteline-tick { left: auto; right: 27px; top: var(--noteline-tick-x); transform: translateY(-50%); max-width: 110px; white-space: normal; text-align: right; font-size: 11px; }
+.noteline.is-vertical .noteline-tick::before { top: 50%; left: auto; right: -18px; width: 7px; height: 1px; }
+.noteline.is-vertical .noteline-today { left: 3px; top: var(--noteline-tick-x); bottom: auto; transform: translateY(-50%); writing-mode: vertical-rl; }
+.noteline.is-vertical .noteline-card-controls .noteline-drag-handle { cursor: ew-resize; }
+.noteline.is-vertical .noteline-card { max-height: max(80px, calc(var(--noteline-scene-height) - 16px)); overflow: auto; overscroll-behavior: contain; }
 .noteline .noteline-problems { max-height: 150px; overflow: auto; padding: 0 16px; background: var(--background-secondary); font-size: var(--font-smallest); }
 .noteline .noteline-problems:empty { display: none; }
 .noteline .noteline-problems summary { padding-block: 8px; cursor: pointer; }

@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   MIN_SPAN, MIN_COORDINATE, MAX_COORDINATE, EMPTY_LANE_HEIGHT, MAX_EMPTY_LANE_GAP, clampRange, dateToX, xToDate,
-  zoomRange, panRange, fitRange, maxSpanForCoordinates, generateTicks, layoutCards,
+  zoomRange, panRange, fitRange, maxSpanForCoordinates, generateTicks, layoutCards, layoutVerticalCards,
 } from '../src/domain/timeline.ts';
 
 const HOUR = 3_600_000;
@@ -40,6 +40,24 @@ test('zoom retains pointer date, honors one hour and upper bounds, and clamps ca
   assert.deepEqual(last, { start: MAX_COORDINATE - DAY, end: MAX_COORDINATE });
   assert.throws(() => zoomRange(range, 0, 0.5, DAY));
   assert.throws(() => clampRange({ start: NaN, end: 0 }));
+});
+
+test('reverse projection and pointer zoom preserve the same calendar date without mutating the range', () => {
+  const original = { ...range };
+  assert.equal(dateToX(range.start, range, 1000, true), 1000);
+  assert.equal(dateToX(range.end, range, 1000, true), 0);
+  for (const coordinate of [range.start, at(2026, 10, 19, 15), range.end]) {
+    const reversed = dateToX(coordinate, range, 1000, true);
+    assert.ok(Math.abs(xToDate(reversed, range, 1000, true) - coordinate) < 1);
+    assert.ok(Math.abs(reversed + dateToX(coordinate, range, 1000) - 1000) < 1e-9);
+  }
+  const pointer = 0.2;
+  const anchoredDate = xToDate(1000 * pointer, range, 1000, true);
+  const zoomed = zoomRange(range, 2, pointer, 90 * DAY, true);
+  assert.ok(Math.abs(xToDate(1000 * pointer, zoomed, 1000, true) - anchoredDate) < 1);
+  assert.deepEqual(range, original);
+  assert.equal(dateToX(range.start, range, 0, true), 0);
+  assert.equal(xToDate(10, range, 0, true), (range.start + range.end) / 2);
 });
 
 test('fit reserves whole edge cards and single-point range is one day', () => {
@@ -93,6 +111,30 @@ test('calendar ticks cross months, leap days and years without 1900 coercion', (
   assert.ok(full.every(tick => tick.coordinate >= MIN_COORDINATE && tick.coordinate <= MAX_COORDINATE));
 });
 
+test('historical ticks cross BCE and CE without showing astronomical year zero', () => {
+  const ticks = generateTicks({ start: at(-2), end: at(3) }, 1200);
+  assert.ok(ticks.some(tick => tick.coordinate === at(0) && tick.label === '1 до н. э.'));
+  assert.ok(ticks.some(tick => tick.coordinate === at(1) && tick.label === '0001'));
+  assert.ok(ticks.every(tick => !/^0(?: до н\. э\.|$)|^0000|^-/.test(tick.label)));
+  const days = generateTicks({ start: at(-43, 3, 14), end: at(-43, 3, 18) }, 1200);
+  assert.ok(days.some(tick => tick.label.startsWith('0044-03-15') && tick.label.endsWith('до н. э.')));
+  assert.ok(days.every(tick => !tick.label.startsWith('-') && !tick.label.startsWith('0000')));
+});
+
+test('century-scale ticks use canonical Roman centuries with correct BCE/CE boundaries', () => {
+  const ticks = generateTicks({ start: at(-299), end: at(301) }, 1600);
+  assert.ok(ticks.some(tick => tick.coordinate === at(-299) && tick.label === 'III век до н. э.'));
+  assert.ok(ticks.some(tick => tick.coordinate === at(-99) && tick.label === 'I век до н. э.'));
+  assert.ok(ticks.some(tick => tick.coordinate === at(1) && tick.label === 'I век'));
+  const modern = generateTicks({ start: at(1700), end: at(2100) }, 1600);
+  assert.ok(modern.some(tick => tick.coordinate === at(1801) && tick.label === 'XIX век'));
+  const exactThreeCenturies = generateTicks({ start: at(1700), end: at(2000) }, 1600);
+  assert.ok(exactThreeCenturies.every(tick => tick.label.includes('век')));
+  assert.ok(ticks.every(tick => !/\d|^-/.test(tick.label)));
+  assert.ok(MIN_COORDINATE === at(-9999));
+  assert.ok(MAX_COORDINATE === at(10001) - 1);
+});
+
 test('same-date cards occupy separate lanes, retain temporal coordinate and have nonnegative tops', () => {
   const coordinate = at(2026, 10, 15);
   const result = layoutCards([card('b', coordinate), card('a', coordinate), card('c', coordinate)], range, 1000);
@@ -101,6 +143,75 @@ test('same-date cards occupy separate lanes, retain temporal coordinate and have
   assert.ok(result.items[0].y > result.items[1].y);
   assert.ok(result.items[1].y > result.items[2].y);
   assert.ok(result.height > Math.max(...result.items.map(item => item.y + item.height)));
+});
+
+test('reversing a horizontal layout mirrors time positions while preserving chronology and preferences', () => {
+  const inputs = [card('later', at(2026, 10, 27), 1), card('early', at(2026, 10, 5), 0)];
+  const forward = layoutCards(inputs, range, 1000);
+  const reverse = layoutCards(inputs, range, 1000, true);
+  assert.deepEqual(reverse.items.map(item => [item.id, item.coordinate, item.preferredLane, item.lane]),
+    forward.items.map(item => [item.id, item.coordinate, item.preferredLane, item.lane]));
+  for (let index = 0; index < forward.items.length; index += 1) {
+    assert.ok(Math.abs(forward.items[index].x + reverse.items[index].x + forward.items[index].width - 1000) < 1e-9);
+  }
+  assert.deepEqual(inputs.map(input => input.id), ['later', 'early']);
+});
+
+function assertNoOverlaps(items) {
+  for (let first = 0; first < items.length; first += 1) {
+    for (let second = first + 1; second < items.length; second += 1) {
+      const a = items[first];
+      const b = items[second];
+      assert.ok(a.x + a.width <= b.x || b.x + b.width <= a.x || a.y + a.height <= b.y || b.y + b.height <= a.y);
+    }
+  }
+}
+
+test('vertical cards resolve close dates using measured expanded heights and cross-axis widths', () => {
+  const inputs = [
+    card('a', at(2026, 10, 15), 0, 96),
+    { ...card('b', at(2026, 10, 15), 0, 420), width: 220 },
+    card('c', at(2026, 10, 16), 0, 120),
+    card('d', at(2026, 10, 28), 0, 96),
+  ];
+  const layout = layoutVerticalCards(inputs, range, 800);
+  assertNoOverlaps(layout.items);
+  assert.equal(layout.items[0].x, 24);
+  assert.ok(layout.items[1].x >= layout.items[0].x + layout.items[0].width + 16);
+  assert.ok(layout.width >= Math.max(...layout.items.map(item => item.x + item.width)));
+  assert.ok(layout.items.every(item => item.y >= 0 && item.y + item.height <= 800));
+  assert.deepEqual(layout, layoutVerticalCards([...inputs].reverse(), range, 800));
+  assert.deepEqual(inputs.map(input => input.preferredLane), [0, 0, 0, 0]);
+  const mirrored = layoutVerticalCards(inputs, range, 800, true);
+  assertNoOverlaps(mirrored.items);
+  assert.deepEqual(mirrored.items.map(item => item.coordinate), layout.items.map(item => item.coordinate));
+});
+
+test('vertical empty cross-axis levels preserve movement and bound extreme sparse levels', () => {
+  const input = card('only', at(2026, 10, 15));
+  const zero = layoutVerticalCards([input], range, 600);
+  const one = layoutVerticalCards([{ ...input, preferredLane: 1 }], range, 600);
+  assert.equal(one.items[0].x - zero.items[0].x, EMPTY_LANE_HEIGHT);
+  assert.equal(one.width - zero.width, EMPTY_LANE_HEIGHT);
+  const sparse = layoutVerticalCards([{ ...input, preferredLane: Number.MAX_SAFE_INTEGER }], range, 600);
+  assert.equal(sparse.width - zero.width, MAX_EMPTY_LANE_GAP);
+  assert.deepEqual(layoutVerticalCards([], range, 600), { items: [], width: 0 });
+});
+
+test('vertical edge cards clamp on narrow time viewports and at both supported calendar bounds', () => {
+  for (const coordinate of [MIN_COORDINATE, MAX_COORDINATE]) {
+    const fitted = fitRange([coordinate], 375, 343);
+    for (const reverse of [false, true]) {
+      const { items } = layoutVerticalCards([card('edge', coordinate, 0, 343)], fitted, 375, reverse);
+      assert.ok(items[0].y >= 0 && items[0].y + items[0].height <= 375);
+      assert.equal(items[0].coordinate, coordinate);
+    }
+  }
+  const oversized = layoutVerticalCards([card('expanded', at(2026, 10, 15), 0, 420)], range, 200);
+  assert.equal(oversized.items[0].y, 0);
+  const offscreen = layoutVerticalCards([card('past', at(-43)), card('future', at(9999))], range, 600);
+  assert.ok(offscreen.items[0].y < 0);
+  assert.ok(offscreen.items[1].y > 600);
 });
 
 test('expanding one card changes lane height without collisions or overwriting preferences', () => {

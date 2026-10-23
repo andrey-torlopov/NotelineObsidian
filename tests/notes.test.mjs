@@ -95,6 +95,16 @@ test('metadata adapter reports invalid YAML roots and errors instead of guessing
   }
 });
 
+test('metadata adapter keeps numeric YAML years, partial dates and BCE precision', () => {
+  const cases = [[2026, 'year', '2026'], [44, 'year', '0044'], ['2026-10', 'month', '2026-10'], ['XIX', 'century', 'XIX'], ['44 до н.э.', 'year', '0044 BC'], ['II BC', 'century', 'II BC']];
+  for (const [date, precision, canonical] of cases) {
+    const metadata = parseNote(noteWithYaml({ date, tags: ['one'] }), dateProperties);
+    assert.equal(metadata.date.kind, 'valid', String(date));
+    assert.equal(metadata.date.date.precision, precision);
+    assert.equal(metadata.date.date.value, canonical);
+  }
+});
+
 test('changed span retains surrounding bytes and sends a single editor transaction', () => {
   const before = '\uFEFF📅 2026-10-22\n📍 Tags: #old\nUnsaved text 🧭';
   const editor = editorWith(before);
@@ -176,6 +186,20 @@ test('YAML accepts each supported tags shape and preserves body and other proper
     assert.deepEqual(options.frontmatter.other, { nested: true });
     assert.equal(options.frontmatter.date, '2026-10-22');
     assert.equal(state.text.slice(extractFrontmatter(state.text).end), body);
+  }
+});
+
+test('tag writes preserve numeric and partial source date values and precision', async () => {
+  for (const date of [2026, '2026-10', '44 BCE', 'II д.н.э.']) {
+    const state = harness(noteWithYaml({ date, tags: ['one'] }));
+    await addTag(state.app, state.file, dateProperties, 'new');
+    assert.equal(metadataOptions(state.text, dateProperties).frontmatter.date, date);
+    assert.equal(parseNote(state.text, dateProperties).date.kind, 'valid');
+  }
+  for (const date of ['2026-10', '44 BC', 'II до н.э.']) {
+    const state = harness(`📅 ${date}\n📍 Tags: #one\nBody`);
+    await addTag(state.app, state.file, dateProperties, 'new');
+    assert.equal(state.text, `📅 ${date}\n📍 Tags: #one #new\nBody`);
   }
 });
 

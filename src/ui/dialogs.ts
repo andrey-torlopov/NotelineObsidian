@@ -74,3 +74,37 @@ export class ValueModal extends Modal {
 
   onClose(): void { this.contentEl.empty(); }
 }
+
+export class TimelinePicker extends SuggestModal<TFile> {
+  private files: TFile[];
+  private selectFile: (file: TFile) => Promise<void>;
+  constructor(app: App, files: TFile[], selectFile: (file: TFile) => Promise<void>) {
+    super(app);
+    this.files = files;
+    this.selectFile = selectFile;
+    this.setPlaceholder('Название или путь временной оси…');
+  }
+  getSuggestions(query: string): TFile[] {
+    const terms = query.trim().toLowerCase().split(/\s+/).filter(Boolean);
+    return this.files.filter(file => terms.every(term => file.path.toLowerCase().includes(term)));
+  }
+  renderSuggestion(file: TFile, el: HTMLElement): void { el.createDiv({ text: file.basename }); el.createDiv({ text: file.path, cls: 'noteline-picker-path' }); }
+  onChooseSuggestion(file: TFile): void { void this.selectFile(file); }
+}
+
+export class ConfirmationModal extends Modal {
+  private heading: string;
+  private description: string;
+  private action: () => Promise<void>;
+  constructor(app: App, heading: string, description: string, action: () => Promise<void>) { super(app); this.heading = heading; this.description = description; this.action = action; }
+  onOpen(): void {
+    this.setTitle(this.heading);
+    this.contentEl.createEl('p', { text: this.description });
+    const errorEl = this.contentEl.createDiv({ cls: 'noteline-error', attr: { role: 'alert' } });
+    new Setting(this.contentEl).addButton(button => button.setButtonText('Отмена').onClick(() => this.close())).addButton(button => button.setButtonText('Подтвердить').setCta().onClick(async () => {
+      try { await this.action(); this.close(); }
+      catch (error) { errorEl.setText(error instanceof Error ? error.message : String(error)); }
+    }));
+  }
+  onClose(): void { this.contentEl.empty(); }
+}
