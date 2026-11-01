@@ -120,3 +120,7 @@ The production build creates `main.js`. Install it alongside `manifest.json` and
 Multiple independent timeline files, one card per note within each timeline, horizontal or vertical axes, and either chronological direction. A copy of a timeline keeps references to the same notes; it does not duplicate their contents. There are no event intervals, date editing by dragging, image export, collaborative conflict merging, or pinch-to-zoom. Files renamed while the plugin is disabled may need manual relinking. [Compatibility and limitations](docs/en/troubleshooting.md).
 
 Licensed under [MIT](LICENSE). The original banner artwork is provided under [CC0 1.0](docs/artwork.md).
+
+## ☕ Buy me a coffee
+
+If you find this project useful, you can [support my work on Boosty](https://boosty.to/andreytorlopov).
